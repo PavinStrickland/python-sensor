@@ -86,6 +86,11 @@ try:
 
                 if 'headers' in kwargs:
                     active_tracer.inject(scope.span.context, opentracing.Format.HTTP_HEADERS, kwargs['headers'])
+                    if agent.options.extra_http_headers is not None:
+                        for custom_header in agent.options.extra_http_headers:
+                            if custom_header in kwargs['headers']:
+                                scope.span.set_tag("http.header.%s" % custom_header, kwargs['headers'][custom_header])
+
 
                 response = wrapped(*args, **kwargs)
 
