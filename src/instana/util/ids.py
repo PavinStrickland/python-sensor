@@ -2,8 +2,8 @@
 # (c) Copyright Instana Inc. 2020
 
 import os
-import time
 import random
+import time
 
 _rnd = random.Random()
 _current_pid = 0
@@ -12,14 +12,14 @@ BAD_ID = "BADCAFFE"  # Bad Caffe
 
 
 def generate_id():
-    """ Generate a 64bit base 16 ID for use as a Span or Trace ID """
+    """Generate a 64bit base 16 ID for use as a Span or Trace ID"""
     global _current_pid
 
     pid = os.getpid()
     if _current_pid != pid:
         _current_pid = pid
         _rnd.seed(int(1000000 * time.time()) ^ pid)
-    new_id = format(_rnd.randint(0, 18446744073709551615), '02x')
+    new_id = format(_rnd.randint(0, 18446744073709551615), "02x")
 
     if len(new_id) < 16:
         new_id = new_id.zfill(16)
@@ -37,7 +37,7 @@ def header_to_long_id(header):
     :return: a valid ID to be used internal to the tracer
     """
     if isinstance(header, bytes):
-        header = header.decode('utf-8')
+        header = header.decode("utf-8")
 
     if not isinstance(header, str):
         return BAD_ID
@@ -66,7 +66,7 @@ def header_to_id(header):
     :return: a valid ID to be used internal to the tracer
     """
     if isinstance(header, bytes):
-        header = header.decode('utf-8')
+        header = header.decode("utf-8")
 
     if not isinstance(header, str):
         return BAD_ID

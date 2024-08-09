@@ -2,9 +2,9 @@
 # (c) Copyright Instana Inc. 2020
 
 from unittest import SkipTest
-from opentracing.harness.api_check import APICompatibilityCheckMixin
 
 from instana.tracer import InstanaTracer
+from opentracing.harness.api_check import APICompatibilityCheckMixin
 
 
 class TestInstanaTracer(InstanaTracer, APICompatibilityCheckMixin):
@@ -12,10 +12,10 @@ class TestInstanaTracer(InstanaTracer, APICompatibilityCheckMixin):
         return self
 
     def test_binary_propagation(self):
-        raise SkipTest('Binary format is not supported')
+        raise SkipTest("Binary format is not supported")
 
     def test_mandatory_formats(self):
-        raise SkipTest('Binary format is not supported')
+        raise SkipTest("Binary format is not supported")
 
     def check_baggage_values(self):
         return True

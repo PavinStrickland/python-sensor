@@ -2,16 +2,17 @@
 # (c) Copyright Instana Inc. 2019
 
 
-import sys
-import wrapt
 import logging
+import sys
 from collections.abc import Mapping
+
+import wrapt
 
 from ..log import logger
 from ..util.traceutils import get_tracer_tuple, tracing_is_off
 
 
-@wrapt.patch_function_wrapper('logging', 'Logger._log')
+@wrapt.patch_function_wrapper("logging", "Logger._log")
 def log_with_instana(wrapped, instance, argv, kwargs):
     # argv[0] = level
     # argv[1] = message
@@ -35,21 +36,20 @@ def log_with_instana(wrapped, instance, argv, kwargs):
         parameters = None
         (t, v, tb) = sys.exc_info()
         if t is not None and v is not None:
-            parameters = '{} {}'.format(t , v)
+            parameters = "{} {}".format(t, v)
 
         # create logging span
-        with tracer.start_active_span('log', child_of=parent_span) as scope:
-            scope.span.log_kv({ 'message': msg })
+        with tracer.start_active_span("log", child_of=parent_span) as scope:
+            scope.span.log_kv({"message": msg})
             if parameters is not None:
-                scope.span.log_kv({ 'parameters': parameters })
+                scope.span.log_kv({"parameters": parameters})
             # extra tags for an error
             if argv[0] >= logging.ERROR:
                 scope.span.mark_as_errored()
     except Exception:
-        logger.debug('log_with_instana:', exc_info=True)
+        logger.debug("log_with_instana:", exc_info=True)
 
     return wrapped(*argv, **kwargs)
 
 
-logger.debug('Instrumenting logging')
-
+logger.debug("Instrumenting logging")

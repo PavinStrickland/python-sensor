@@ -5,15 +5,13 @@
 A Collector launches a background thread and continually collects & reports data.  The data
 can be any combination of metrics, snapshot data and spans.
 """
-import sys
+
+import queue  # pylint: disable=import-error
 import threading
 
 from ..log import logger
 from ..singletons import env_is_test
-from ..util import every, DictionaryOfStan
-
-
-import queue # pylint: disable=import-error
+from ..util import DictionaryOfStan, every
 
 
 class BaseCollector(object):
@@ -21,6 +19,7 @@ class BaseCollector(object):
     Base class to handle the collection & reporting of snapshot and metric data
     This class launches a background thread to do this work.
     """
+
     def __init__(self, agent):
         # The agent for this process.  Can be Standard, AWSLambda or Fargate
         self.agent = agent
@@ -35,6 +34,7 @@ class BaseCollector(object):
             # others in background processes.  This multiprocessing queue allows us to collect
             # up spans from all sources.
             import multiprocessing
+
             self.span_queue = multiprocessing.Queue()
         else:
             self.span_queue = queue.Queue()
@@ -92,7 +92,10 @@ class BaseCollector(object):
                 timer.name = "Collector Timed Start"
                 timer.start()
                 return
-            logger.debug("BaseCollector.start non-fatal: call but thread already running (started: %s)", self.started)
+            logger.debug(
+                "BaseCollector.start non-fatal: call but thread already running (started: %s)",
+                self.started,
+            )
             return
 
         if self.agent.can_send():
@@ -104,7 +107,9 @@ class BaseCollector(object):
             self.reporting_thread.start()
             self.started = True
         else:
-            logger.warning("BaseCollector.start: the agent tells us we can't send anything out")
+            logger.warning(
+                "BaseCollector.start: the agent tells us we can't send anything out"
+            )
 
     def shutdown(self, report_final=True):
         """
@@ -123,7 +128,11 @@ class BaseCollector(object):
         Just a loop that is run in the background thread.
         @return: None
         """
-        every(self.report_interval, self.background_report, "Instana Collector: prepare_and_report_data")
+        every(
+            self.report_interval,
+            self.background_report,
+            "Instana Collector: prepare_and_report_data",
+        )
 
     def background_report(self):
         """
@@ -131,13 +140,17 @@ class BaseCollector(object):
         @return: Boolean
         """
         if self.thread_shutdown.is_set():
-            logger.debug("Thread shutdown signal is active: Shutting down reporting thread")
+            logger.debug(
+                "Thread shutdown signal is active: Shutting down reporting thread"
+            )
             return False
 
         self.prepare_and_report_data()
 
         if self.thread_shutdown.is_set():
-            logger.debug("Thread shutdown signal is active: Shutting down reporting thread")
+            logger.debug(
+                "Thread shutdown signal is active: Shutting down reporting thread"
+            )
             return False
 
         return True
@@ -187,7 +200,6 @@ class BaseCollector(object):
             else:
                 spans.append(span)
         return spans
-
 
     def queued_profiles(self):
         """

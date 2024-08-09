@@ -93,6 +93,7 @@ ignore = [
     "E501",  # line-too-long
     "E722",  # bare-except
     "E731",  # lambda-expression
+    "B023",  # loop-variable
 ]
 
 [tool.ruff.format]

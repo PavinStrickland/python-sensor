@@ -1,8 +1,8 @@
 # (c) Copyright IBM Corp. 2021
 # (c) Copyright Instana Inc. 2021
 
-from ..singletons import agent, tracer, async_tracer, tornado_tracer
 from ..log import logger
+from ..singletons import agent, async_tracer, tornado_tracer, tracer
 
 
 def extract_custom_headers(tracing_span, headers):
@@ -35,7 +35,11 @@ def get_active_tracer():
 def get_tracer_tuple():
     active_tracer = get_active_tracer()
     if active_tracer:
-        return (active_tracer, active_tracer.active_span, active_tracer.active_span.operation_name)
+        return (
+            active_tracer,
+            active_tracer.active_span,
+            active_tracer.active_span.operation_name,
+        )
     elif agent.options.allow_exit_as_root:
         return (tracer, None, None)
     return (None, None, None)

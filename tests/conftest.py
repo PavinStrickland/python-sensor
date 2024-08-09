@@ -4,23 +4,23 @@
 import importlib.util
 import os
 import sys
+
 import pytest
 
-if importlib.util.find_spec('celery'):
-    pytest_plugins = ("celery.contrib.pytest", )
+if importlib.util.find_spec("celery"):
+    pytest_plugins = ("celery.contrib.pytest",)
 
 # Set our testing flags
 os.environ["INSTANA_TEST"] = "true"
 # os.environ["INSTANA_DEBUG"] = "true"
 
 # Make sure the instana package is fully loaded
-import instana
 
 collect_ignore_glob = []
 
 # Cassandra and gevent tests are run in dedicated jobs on CircleCI and will
 # be run explicitly.  (So always exclude them here)
-if not os.environ.get("CASSANDRA_TEST" ):
+if not os.environ.get("CASSANDRA_TEST"):
     collect_ignore_glob.append("*test_cassandra*")
 
 if not os.environ.get("COUCHBASE_TEST"):
@@ -64,22 +64,21 @@ if sys.version_info >= (3, 13):
     collect_ignore_glob.append("*test_grpcio*")
     collect_ignore_glob.append("*test_sanic*")
 
-@pytest.fixture(scope='session')
+
+@pytest.fixture(scope="session")
 def celery_config():
     return {
-        'broker_connection_retry_on_startup': True,
-        'broker_url': 'redis://localhost:6379',
-        'result_backend': 'redis://localhost:6379'
+        "broker_connection_retry_on_startup": True,
+        "broker_url": "redis://localhost:6379",
+        "result_backend": "redis://localhost:6379",
     }
 
 
-@pytest.fixture(scope='session')
+@pytest.fixture(scope="session")
 def celery_enable_logging():
     return True
 
 
-@pytest.fixture(scope='session')
+@pytest.fixture(scope="session")
 def celery_includes():
-    return {
-        'tests.frameworks.test_celery'
-    }
+    return {"tests.frameworks.test_celery"}

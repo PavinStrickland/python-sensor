@@ -2,17 +2,16 @@
 # (c) Copyright Instana Inc. 2019
 
 
-class SpanContext():
+class SpanContext:
     def __init__(
-            self,
-            trace_id=None,
-            span_id=None,
-            baggage=None,
-            sampled=True,
-            level=1,
-            synthetic=False
+        self,
+        trace_id=None,
+        span_id=None,
+        baggage=None,
+        sampled=True,
+        level=1,
+        synthetic=False,
     ):
-
         self.level = level
         self.trace_id = trace_id
         self.span_id = span_id
@@ -100,4 +99,5 @@ class SpanContext():
             span_id=self.span_id,
             sampled=self.sampled,
             level=self.level,
-            baggage=new_baggage)
+            baggage=new_baggage,
+        )

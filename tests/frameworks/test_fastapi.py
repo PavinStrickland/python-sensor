@@ -1,16 +1,16 @@
 # (c) Copyright IBM Corp. 2021
 # (c) Copyright Instana Inc. 2020
 
+import multiprocessing
 import time
 import unittest
-import multiprocessing
 
 import requests
-
 from instana.singletons import async_tracer
+
 from tests.apps.fastapi_app import launch_fastapi
-from ..helpers import testenv
-from ..helpers import get_first_span_by_filter
+
+from ..helpers import get_first_span_by_filter, testenv
 
 
 class TestFastAPI(unittest.TestCase):
@@ -375,8 +375,6 @@ class TestFastAPI(unittest.TestCase):
         self.assertIsNone(test_span.sy)
 
     def test_request_header_capture(self):
-        from instana.singletons import agent
-
         # The background FastAPI server is pre-configured with custom headers to capture
 
         request_headers = {"X-Capture-This": "this", "X-Capture-That": "that"}
@@ -442,8 +440,6 @@ class TestFastAPI(unittest.TestCase):
         self.assertEqual("that", asgi_span.data["http"]["header"]["X-Capture-That"])
 
     def test_response_header_capture(self):
-        from instana.singletons import agent
-
         # The background FastAPI server is pre-configured with custom headers to capture
 
         with async_tracer.start_active_span("test"):
@@ -500,9 +496,13 @@ class TestFastAPI(unittest.TestCase):
         self.assertIsNone(asgi_span.data["http"]["params"])
 
         self.assertIn("X-Capture-This-Too", asgi_span.data["http"]["header"])
-        self.assertEqual("this too", asgi_span.data["http"]["header"]["X-Capture-This-Too"])
+        self.assertEqual(
+            "this too", asgi_span.data["http"]["header"]["X-Capture-This-Too"]
+        )
         self.assertIn("X-Capture-That-Too", asgi_span.data["http"]["header"])
-        self.assertEqual("that too", asgi_span.data["http"]["header"]["X-Capture-That-Too"])
+        self.assertEqual(
+            "that too", asgi_span.data["http"]["header"]["X-Capture-That-Too"]
+        )
 
     def test_non_async_simple(self):
         with async_tracer.start_active_span("test"):
@@ -519,27 +519,19 @@ class TestFastAPI(unittest.TestCase):
         test_span = get_first_span_by_filter(spans, span_filter)
         self.assertTrue(test_span)
 
-        span_filter = (
-            lambda span: span.n == "urllib3" and span.p == test_span.s
-        )
+        span_filter = lambda span: span.n == "urllib3" and span.p == test_span.s
         urllib3_span1 = get_first_span_by_filter(spans, span_filter)
         self.assertTrue(urllib3_span1)
 
-        span_filter = (
-            lambda span: span.n == "asgi" and span.p == urllib3_span1.s
-        )
+        span_filter = lambda span: span.n == "asgi" and span.p == urllib3_span1.s
         asgi_span1 = get_first_span_by_filter(spans, span_filter)
         self.assertTrue(asgi_span1)
 
-        span_filter = (
-            lambda span: span.n == "urllib3" and span.p == asgi_span1.s
-        )
+        span_filter = lambda span: span.n == "urllib3" and span.p == asgi_span1.s
         urllib3_span2 = get_first_span_by_filter(spans, span_filter)
         self.assertTrue(urllib3_span2)
 
-        span_filter = (
-            lambda span: span.n == "asgi" and span.p == urllib3_span2.s
-        )
+        span_filter = lambda span: span.n == "asgi" and span.p == urllib3_span2.s
         asgi_span2 = get_first_span_by_filter(spans, span_filter)
         self.assertTrue(asgi_span2)
 

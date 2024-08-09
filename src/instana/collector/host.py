@@ -4,15 +4,18 @@
 """
 Host Collector: Manages the periodic collection of metrics & snapshot data
 """
+
 from time import time
+
 from ..log import logger
-from .base import BaseCollector
 from ..util import DictionaryOfStan
+from .base import BaseCollector
 from .helpers.runtime import RuntimeHelper
 
 
 class HostCollector(BaseCollector):
-    """ Collector for host agent """
+    """Collector for host agent"""
+
     def __init__(self, agent):
         super(HostCollector, self).__init__(agent)
         logger.debug("Loading Host Collector")
@@ -25,7 +28,9 @@ class HostCollector(BaseCollector):
 
     def start(self):
         if self.ready_to_start is False:
-            logger.warning("Host Collector is missing requirements and cannot monitor this environment.")
+            logger.warning(
+                "Host Collector is missing requirements and cannot monitor this environment."
+            )
             return
 
         super(HostCollector, self).start()
@@ -45,11 +50,18 @@ class HostCollector(BaseCollector):
                 else:
                     return
 
-            if self.agent.machine.fsm.current == "good2go" and self.agent.is_timed_out():
-                logger.info("The Instana host agent has gone offline or is no longer reachable for > 1 min.  Will retry periodically.")
+            if (
+                self.agent.machine.fsm.current == "good2go"
+                and self.agent.is_timed_out()
+            ):
+                logger.info(
+                    "The Instana host agent has gone offline or is no longer reachable for > 1 min.  Will retry periodically."
+                )
                 self.agent.reset()
         except Exception:
-            logger.debug('Harmless state machine thread disagreement.  Will self-correct on next timer cycle.')
+            logger.debug(
+                "Harmless state machine thread disagreement.  Will self-correct on next timer cycle."
+            )
 
         super(HostCollector, self).prepare_and_report_data()
 

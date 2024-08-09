@@ -13,10 +13,10 @@ BaseSpan: Base class containing the commonalities for the two descendants
   - SDKSpan: Class that represents an SDK type span
   - RegisteredSpan: Class that represents a Registered type span
 """
-import six
 
-from basictracer.span import BasicSpan
-import opentracing.ext.tags as ot_tags
+import opentracing.ext.tags as ot_tags  # type: ignore
+import six
+from basictracer.span import BasicSpan  # type: ignore
 
 from .log import logger
 from .util import DictionaryOfStan
@@ -33,14 +33,14 @@ class InstanaSpan(BasicSpan):
         @param tags: optional tags to add to the span
         """
         try:
-            ec = self.tags.get('ec', 0)
-            self.set_tag('ec', ec + 1)
+            ec = self.tags.get("ec", 0)
+            self.set_tag("ec", ec + 1)
 
             if tags is not None and isinstance(tags, dict):
                 for key in tags:
                     self.set_tag(key, tags[key])
         except Exception:
-            logger.debug('span.mark_as_errored', exc_info=True)
+            logger.debug("span.mark_as_errored", exc_info=True)
 
     def assure_errored(self):
         """
@@ -48,11 +48,11 @@ class InstanaSpan(BasicSpan):
         @return: None
         """
         try:
-            ec = self.tags.get('ec', None)
+            ec = self.tags.get("ec", None)
             if ec is None or ec == 0:
-                self.set_tag('ec', 1)
+                self.set_tag("ec", 1)
         except Exception:
-            logger.debug('span.assure_errored', exc_info=True)
+            logger.debug("span.assure_errored", exc_info=True)
 
     def log_exception(self, exc):
         """
@@ -64,29 +64,29 @@ class InstanaSpan(BasicSpan):
         try:
             message = ""
             self.mark_as_errored()
-            if hasattr(exc, '__str__') and len(str(exc)) > 0:
+            if hasattr(exc, "__str__") and len(str(exc)) > 0:
                 message = str(exc)
-            elif hasattr(exc, 'message') and exc.message is not None:
+            elif hasattr(exc, "message") and exc.message is not None:
                 message = exc.message
             else:
                 message = repr(exc)
 
-            if self.operation_name in ['rpc-server', 'rpc-client']:
-                self.set_tag('rpc.error', message)
+            if self.operation_name in ["rpc-server", "rpc-client"]:
+                self.set_tag("rpc.error", message)
             elif self.operation_name == "mysql":
-                self.set_tag('mysql.error', message)
+                self.set_tag("mysql.error", message)
             elif self.operation_name == "postgres":
-                self.set_tag('pg.error', message)
+                self.set_tag("pg.error", message)
             elif self.operation_name in RegisteredSpan.HTTP_SPANS:
-                self.set_tag('http.error', message)
+                self.set_tag("http.error", message)
             elif self.operation_name in ["celery-client", "celery-worker"]:
-                self.set_tag('error', message)
+                self.set_tag("error", message)
             elif self.operation_name == "sqlalchemy":
-                self.set_tag('sqlalchemy.err', message)
+                self.set_tag("sqlalchemy.err", message)
             elif self.operation_name == "aws.lambda.entry":
-                self.set_tag('lambda.error', message)
+                self.set_tag("lambda.error", message)
             else:
-                self.log_kv({'message': message})
+                self.log_kv({"message": message})
         except Exception:
             logger.debug("span.log_exception", exc_info=True)
             raise
@@ -110,7 +110,7 @@ class BaseSpan(object):
         self.ts = int(round(span.start_time * 1000))
         self.d = int(round(span.duration * 1000))
         self.f = source
-        self.ec = span.tags.pop('ec', None)
+        self.ec = span.tags.pop("ec", None)
         self.data = DictionaryOfStan()
         self.stack = span.stack
 
@@ -166,12 +166,18 @@ class BaseSpan(object):
             if isinstance(key, (six.text_type, six.string_types)):
                 validated_key = key[0:1024]  # Max key length of 1024 characters
 
-                if isinstance(value, (bool, float, int, list, dict, six.text_type, six.string_types)):
+                if isinstance(
+                    value,
+                    (bool, float, int, list, dict, six.text_type, six.string_types),
+                ):
                     validated_value = value
                 else:
                     validated_value = self._convert_tag_value(value)
             else:
-                logger.debug("(non-fatal) tag names must be strings. tag discarded for %s", type(key))
+                logger.debug(
+                    "(non-fatal) tag names must be strings. tag discarded for %s",
+                    type(key),
+                )
         except Exception:
             logger.debug("instana.span._validate_tag: ", exc_info=True)
 
@@ -183,8 +189,10 @@ class BaseSpan(object):
         try:
             final_value = repr(value)
         except Exception:
-            final_value = "(non-fatal) span.set_tag: values must be one of these types: bool, float, int, list, " \
-                          "set, str or alternatively support 'repr'. tag discarded"
+            final_value = (
+                "(non-fatal) span.set_tag: values must be one of these types: bool, float, int, list, "
+                "set, str or alternatively support 'repr'. tag discarded"
+            )
             logger.debug(final_value, exc_info=True)
             return None
         return final_value
@@ -219,10 +227,10 @@ class SDKSpan(BaseSpan):
             self.data["sdk"]["custom"]["logs"] = logs
 
         if "arguments" in span.tags:
-            self.data['sdk']['arguments'] = span.tags["arguments"]
+            self.data["sdk"]["arguments"] = span.tags["arguments"]
 
         if "return" in span.tags:
-            self.data['sdk']['return'] = span.tags["return"]
+            self.data["sdk"]["return"] = span.tags["return"]
 
         if len(span.context.baggage) > 0:
             self.data["baggage"] = span.context.baggage
@@ -245,17 +253,54 @@ class SDKSpan(BaseSpan):
 
 
 class RegisteredSpan(BaseSpan):
-    HTTP_SPANS = ("aiohttp-client", "aiohttp-server", "django", "http", "tornado-client",
-                  "tornado-server", "urllib3", "wsgi", "asgi")
+    HTTP_SPANS = (
+        "aiohttp-client",
+        "aiohttp-server",
+        "django",
+        "http",
+        "tornado-client",
+        "tornado-server",
+        "urllib3",
+        "wsgi",
+        "asgi",
+    )
 
-    EXIT_SPANS = ("aiohttp-client", "boto3", "cassandra", "celery-client", "couchbase", "log", "memcache",
-                  "mongo", "mysql", "postgres", "rabbitmq", "redis", "rpc-client", "sqlalchemy",
-                  "tornado-client", "urllib3", "pymongo", "gcs", "gcps-producer")
+    EXIT_SPANS = (
+        "aiohttp-client",
+        "boto3",
+        "cassandra",
+        "celery-client",
+        "couchbase",
+        "log",
+        "memcache",
+        "mongo",
+        "mysql",
+        "postgres",
+        "rabbitmq",
+        "redis",
+        "rpc-client",
+        "sqlalchemy",
+        "tornado-client",
+        "urllib3",
+        "pymongo",
+        "gcs",
+        "gcps-producer",
+    )
 
-    ENTRY_SPANS = ("aiohttp-server", "aws.lambda.entry", "celery-worker", "django", "wsgi", "rabbitmq",
-                   "rpc-server", "tornado-server", "gcps-consumer", "asgi")
+    ENTRY_SPANS = (
+        "aiohttp-server",
+        "aws.lambda.entry",
+        "celery-worker",
+        "django",
+        "wsgi",
+        "rabbitmq",
+        "rpc-server",
+        "tornado-server",
+        "gcps-consumer",
+        "asgi",
+    )
 
-    LOCAL_SPANS = ("render")
+    LOCAL_SPANS = "render"
 
     def __init__(self, span, source, service_name, **kwargs):
         # pylint: disable=invalid-name
@@ -280,7 +325,7 @@ class RegisteredSpan(BaseSpan):
 
         # unify the span operation_name for gcps-producer and gcps-consumer
         if "gcps" in span.operation_name:
-            self.n = 'gcps'
+            self.n = "gcps"
 
         # Store any leftover tags in the custom section
         if len(span.tags) > 0:
@@ -291,73 +336,95 @@ class RegisteredSpan(BaseSpan):
             self._collect_http_tags(span)
 
         elif span.operation_name == "aws.lambda.entry":
-            self.data["lambda"]["arn"] = span.tags.pop('lambda.arn', "Unknown")
+            self.data["lambda"]["arn"] = span.tags.pop("lambda.arn", "Unknown")
             self.data["lambda"]["alias"] = None
             self.data["lambda"]["runtime"] = "python"
-            self.data["lambda"]["functionName"] = span.tags.pop('lambda.name', "Unknown")
-            self.data["lambda"]["functionVersion"] = span.tags.pop('lambda.version', "Unknown")
-            self.data["lambda"]["trigger"] = span.tags.pop('lambda.trigger', None)
-            self.data["lambda"]["error"] = span.tags.pop('lambda.error', None)
+            self.data["lambda"]["functionName"] = span.tags.pop(
+                "lambda.name", "Unknown"
+            )
+            self.data["lambda"]["functionVersion"] = span.tags.pop(
+                "lambda.version", "Unknown"
+            )
+            self.data["lambda"]["trigger"] = span.tags.pop("lambda.trigger", None)
+            self.data["lambda"]["error"] = span.tags.pop("lambda.error", None)
 
             trigger_type = self.data["lambda"]["trigger"]
 
             if trigger_type in ["aws:api.gateway", "aws:application.load.balancer"]:
                 self._collect_http_tags(span)
-            elif trigger_type == 'aws:cloudwatch.events':
-                self.data["lambda"]["cw"]["events"]["id"] = span.tags.pop('data.lambda.cw.events.id', None)
-                self.data["lambda"]["cw"]["events"]["more"] = span.tags.pop('lambda.cw.events.more', False)
-                self.data["lambda"]["cw"]["events"]["resources"] = span.tags.pop('lambda.cw.events.resources', None)
+            elif trigger_type == "aws:cloudwatch.events":
+                self.data["lambda"]["cw"]["events"]["id"] = span.tags.pop(
+                    "data.lambda.cw.events.id", None
+                )
+                self.data["lambda"]["cw"]["events"]["more"] = span.tags.pop(
+                    "lambda.cw.events.more", False
+                )
+                self.data["lambda"]["cw"]["events"]["resources"] = span.tags.pop(
+                    "lambda.cw.events.resources", None
+                )
 
-            elif trigger_type == 'aws:cloudwatch.logs':
-                self.data["lambda"]["cw"]["logs"]["group"] = span.tags.pop('lambda.cw.logs.group', None)
-                self.data["lambda"]["cw"]["logs"]["stream"] = span.tags.pop('lambda.cw.logs.stream', None)
-                self.data["lambda"]["cw"]["logs"]["more"] = span.tags.pop('lambda.cw.logs.more', None)
-                self.data["lambda"]["cw"]["logs"]["events"] = span.tags.pop('lambda.cw.logs.events', None)
+            elif trigger_type == "aws:cloudwatch.logs":
+                self.data["lambda"]["cw"]["logs"]["group"] = span.tags.pop(
+                    "lambda.cw.logs.group", None
+                )
+                self.data["lambda"]["cw"]["logs"]["stream"] = span.tags.pop(
+                    "lambda.cw.logs.stream", None
+                )
+                self.data["lambda"]["cw"]["logs"]["more"] = span.tags.pop(
+                    "lambda.cw.logs.more", None
+                )
+                self.data["lambda"]["cw"]["logs"]["events"] = span.tags.pop(
+                    "lambda.cw.logs.events", None
+                )
 
-            elif trigger_type == 'aws:s3':
-                self.data["lambda"]["s3"]["events"] = span.tags.pop('lambda.s3.events', None)
-            elif trigger_type == 'aws:sqs':
-                self.data["lambda"]["sqs"]["messages"] = span.tags.pop('lambda.sqs.messages', None)
+            elif trigger_type == "aws:s3":
+                self.data["lambda"]["s3"]["events"] = span.tags.pop(
+                    "lambda.s3.events", None
+                )
+            elif trigger_type == "aws:sqs":
+                self.data["lambda"]["sqs"]["messages"] = span.tags.pop(
+                    "lambda.sqs.messages", None
+                )
 
         elif span.operation_name == "celery-worker":
-            self.data["celery"]["task"] = span.tags.pop('task', None)
-            self.data["celery"]["task_id"] = span.tags.pop('task_id', None)
-            self.data["celery"]["scheme"] = span.tags.pop('scheme', None)
-            self.data["celery"]["host"] = span.tags.pop('host', None)
-            self.data["celery"]["port"] = span.tags.pop('port', None)
-            self.data["celery"]["retry-reason"] = span.tags.pop('retry-reason', None)
-            self.data["celery"]["error"] = span.tags.pop('error', None)
+            self.data["celery"]["task"] = span.tags.pop("task", None)
+            self.data["celery"]["task_id"] = span.tags.pop("task_id", None)
+            self.data["celery"]["scheme"] = span.tags.pop("scheme", None)
+            self.data["celery"]["host"] = span.tags.pop("host", None)
+            self.data["celery"]["port"] = span.tags.pop("port", None)
+            self.data["celery"]["retry-reason"] = span.tags.pop("retry-reason", None)
+            self.data["celery"]["error"] = span.tags.pop("error", None)
 
         elif span.operation_name == "gcps-consumer":
-            self.data["gcps"]["op"] = span.tags.pop('gcps.op', None)
-            self.data["gcps"]["projid"] = span.tags.pop('gcps.projid', None)
-            self.data["gcps"]["sub"] = span.tags.pop('gcps.sub', None)
+            self.data["gcps"]["op"] = span.tags.pop("gcps.op", None)
+            self.data["gcps"]["projid"] = span.tags.pop("gcps.projid", None)
+            self.data["gcps"]["sub"] = span.tags.pop("gcps.sub", None)
 
         elif span.operation_name == "rabbitmq":
-            self.data["rabbitmq"]["exchange"] = span.tags.pop('exchange', None)
-            self.data["rabbitmq"]["queue"] = span.tags.pop('queue', None)
-            self.data["rabbitmq"]["sort"] = span.tags.pop('sort', None)
-            self.data["rabbitmq"]["address"] = span.tags.pop('address', None)
-            self.data["rabbitmq"]["key"] = span.tags.pop('key', None)
+            self.data["rabbitmq"]["exchange"] = span.tags.pop("exchange", None)
+            self.data["rabbitmq"]["queue"] = span.tags.pop("queue", None)
+            self.data["rabbitmq"]["sort"] = span.tags.pop("sort", None)
+            self.data["rabbitmq"]["address"] = span.tags.pop("address", None)
+            self.data["rabbitmq"]["key"] = span.tags.pop("key", None)
 
         elif span.operation_name == "rpc-server":
-            self.data["rpc"]["flavor"] = span.tags.pop('rpc.flavor', None)
-            self.data["rpc"]["host"] = span.tags.pop('rpc.host', None)
-            self.data["rpc"]["port"] = span.tags.pop('rpc.port', None)
-            self.data["rpc"]["call"] = span.tags.pop('rpc.call', None)
-            self.data["rpc"]["call_type"] = span.tags.pop('rpc.call_type', None)
-            self.data["rpc"]["params"] = span.tags.pop('rpc.params', None)
-            self.data["rpc"]["baggage"] = span.tags.pop('rpc.baggage', None)
-            self.data["rpc"]["error"] = span.tags.pop('rpc.error', None)
+            self.data["rpc"]["flavor"] = span.tags.pop("rpc.flavor", None)
+            self.data["rpc"]["host"] = span.tags.pop("rpc.host", None)
+            self.data["rpc"]["port"] = span.tags.pop("rpc.port", None)
+            self.data["rpc"]["call"] = span.tags.pop("rpc.call", None)
+            self.data["rpc"]["call_type"] = span.tags.pop("rpc.call_type", None)
+            self.data["rpc"]["params"] = span.tags.pop("rpc.params", None)
+            self.data["rpc"]["baggage"] = span.tags.pop("rpc.baggage", None)
+            self.data["rpc"]["error"] = span.tags.pop("rpc.error", None)
         else:
             logger.debug("SpanRecorder: Unknown entry span: %s" % span.operation_name)
 
     def _populate_local_span_data(self, span):
         if span.operation_name == "render":
-            self.data["render"]["name"] = span.tags.pop('name', None)
-            self.data["render"]["type"] = span.tags.pop('type', None)
-            self.data["log"]["message"] = span.tags.pop('message', None)
-            self.data["log"]["parameters"] = span.tags.pop('parameters', None)
+            self.data["render"]["name"] = span.tags.pop("name", None)
+            self.data["render"]["type"] = span.tags.pop("type", None)
+            self.data["log"]["message"] = span.tags.pop("message", None)
+            self.data["log"]["parameters"] = span.tags.pop("parameters", None)
         else:
             logger.debug("SpanRecorder: Unknown local span: %s" % span.operation_name)
 
@@ -369,124 +436,152 @@ class RegisteredSpan(BaseSpan):
             # boto3 also sends http tags
             self._collect_http_tags(span)
 
-            for tag in ['op', 'ep', 'reg', 'payload', 'error']:
+            for tag in ["op", "ep", "reg", "payload", "error"]:
                 value = span.tags.pop(tag, None)
                 if value is not None:
-                    if tag == 'payload':
+                    if tag == "payload":
                         self.data["boto3"][tag] = self._validate_tags(value)
                     else:
                         self.data["boto3"][tag] = value
 
         elif span.operation_name == "cassandra":
-            self.data["cassandra"]["cluster"] = span.tags.pop('cassandra.cluster', None)
-            self.data["cassandra"]["query"] = span.tags.pop('cassandra.query', None)
-            self.data["cassandra"]["keyspace"] = span.tags.pop('cassandra.keyspace', None)
-            self.data["cassandra"]["fetchSize"] = span.tags.pop('cassandra.fetchSize', None)
-            self.data["cassandra"]["achievedConsistency"] = span.tags.pop('cassandra.achievedConsistency', None)
-            self.data["cassandra"]["triedHosts"] = span.tags.pop('cassandra.triedHosts', None)
-            self.data["cassandra"]["fullyFetched"] = span.tags.pop('cassandra.fullyFetched', None)
-            self.data["cassandra"]["error"] = span.tags.pop('cassandra.error', None)
+            self.data["cassandra"]["cluster"] = span.tags.pop("cassandra.cluster", None)
+            self.data["cassandra"]["query"] = span.tags.pop("cassandra.query", None)
+            self.data["cassandra"]["keyspace"] = span.tags.pop(
+                "cassandra.keyspace", None
+            )
+            self.data["cassandra"]["fetchSize"] = span.tags.pop(
+                "cassandra.fetchSize", None
+            )
+            self.data["cassandra"]["achievedConsistency"] = span.tags.pop(
+                "cassandra.achievedConsistency", None
+            )
+            self.data["cassandra"]["triedHosts"] = span.tags.pop(
+                "cassandra.triedHosts", None
+            )
+            self.data["cassandra"]["fullyFetched"] = span.tags.pop(
+                "cassandra.fullyFetched", None
+            )
+            self.data["cassandra"]["error"] = span.tags.pop("cassandra.error", None)
 
         elif span.operation_name == "celery-client":
-            self.data["celery"]["task"] = span.tags.pop('task', None)
-            self.data["celery"]["task_id"] = span.tags.pop('task_id', None)
-            self.data["celery"]["scheme"] = span.tags.pop('scheme', None)
-            self.data["celery"]["host"] = span.tags.pop('host', None)
-            self.data["celery"]["port"] = span.tags.pop('port', None)
-            self.data["celery"]["error"] = span.tags.pop('error', None)
+            self.data["celery"]["task"] = span.tags.pop("task", None)
+            self.data["celery"]["task_id"] = span.tags.pop("task_id", None)
+            self.data["celery"]["scheme"] = span.tags.pop("scheme", None)
+            self.data["celery"]["host"] = span.tags.pop("host", None)
+            self.data["celery"]["port"] = span.tags.pop("port", None)
+            self.data["celery"]["error"] = span.tags.pop("error", None)
 
         elif span.operation_name == "couchbase":
-            self.data["couchbase"]["hostname"] = span.tags.pop('couchbase.hostname', None)
-            self.data["couchbase"]["bucket"] = span.tags.pop('couchbase.bucket', None)
-            self.data["couchbase"]["type"] = span.tags.pop('couchbase.type', None)
-            self.data["couchbase"]["error"] = span.tags.pop('couchbase.error', None)
-            self.data["couchbase"]["error_type"] = span.tags.pop('couchbase.error_type', None)
-            self.data["couchbase"]["sql"] = span.tags.pop('couchbase.sql', None)
+            self.data["couchbase"]["hostname"] = span.tags.pop(
+                "couchbase.hostname", None
+            )
+            self.data["couchbase"]["bucket"] = span.tags.pop("couchbase.bucket", None)
+            self.data["couchbase"]["type"] = span.tags.pop("couchbase.type", None)
+            self.data["couchbase"]["error"] = span.tags.pop("couchbase.error", None)
+            self.data["couchbase"]["error_type"] = span.tags.pop(
+                "couchbase.error_type", None
+            )
+            self.data["couchbase"]["sql"] = span.tags.pop("couchbase.sql", None)
 
         elif span.operation_name == "rabbitmq":
-            self.data["rabbitmq"]["exchange"] = span.tags.pop('exchange', None)
-            self.data["rabbitmq"]["queue"] = span.tags.pop('queue', None)
-            self.data["rabbitmq"]["sort"] = span.tags.pop('sort', None)
-            self.data["rabbitmq"]["address"] = span.tags.pop('address', None)
-            self.data["rabbitmq"]["key"] = span.tags.pop('key', None)
+            self.data["rabbitmq"]["exchange"] = span.tags.pop("exchange", None)
+            self.data["rabbitmq"]["queue"] = span.tags.pop("queue", None)
+            self.data["rabbitmq"]["sort"] = span.tags.pop("sort", None)
+            self.data["rabbitmq"]["address"] = span.tags.pop("address", None)
+            self.data["rabbitmq"]["key"] = span.tags.pop("key", None)
 
         elif span.operation_name == "redis":
-            self.data["redis"]["connection"] = span.tags.pop('connection', None)
-            self.data["redis"]["driver"] = span.tags.pop('driver', None)
-            self.data["redis"]["command"] = span.tags.pop('command', None)
-            self.data["redis"]["error"] = span.tags.pop('redis.error', None)
-            self.data["redis"]["subCommands"] = span.tags.pop('subCommands', None)
+            self.data["redis"]["connection"] = span.tags.pop("connection", None)
+            self.data["redis"]["driver"] = span.tags.pop("driver", None)
+            self.data["redis"]["command"] = span.tags.pop("command", None)
+            self.data["redis"]["error"] = span.tags.pop("redis.error", None)
+            self.data["redis"]["subCommands"] = span.tags.pop("subCommands", None)
 
         elif span.operation_name == "rpc-client":
-            self.data["rpc"]["flavor"] = span.tags.pop('rpc.flavor', None)
-            self.data["rpc"]["host"] = span.tags.pop('rpc.host', None)
-            self.data["rpc"]["port"] = span.tags.pop('rpc.port', None)
-            self.data["rpc"]["call"] = span.tags.pop('rpc.call', None)
-            self.data["rpc"]["call_type"] = span.tags.pop('rpc.call_type', None)
-            self.data["rpc"]["params"] = span.tags.pop('rpc.params', None)
-            self.data["rpc"]["baggage"] = span.tags.pop('rpc.baggage', None)
-            self.data["rpc"]["error"] = span.tags.pop('rpc.error', None)
+            self.data["rpc"]["flavor"] = span.tags.pop("rpc.flavor", None)
+            self.data["rpc"]["host"] = span.tags.pop("rpc.host", None)
+            self.data["rpc"]["port"] = span.tags.pop("rpc.port", None)
+            self.data["rpc"]["call"] = span.tags.pop("rpc.call", None)
+            self.data["rpc"]["call_type"] = span.tags.pop("rpc.call_type", None)
+            self.data["rpc"]["params"] = span.tags.pop("rpc.params", None)
+            self.data["rpc"]["baggage"] = span.tags.pop("rpc.baggage", None)
+            self.data["rpc"]["error"] = span.tags.pop("rpc.error", None)
 
         elif span.operation_name == "sqlalchemy":
-            self.data["sqlalchemy"]["sql"] = span.tags.pop('sqlalchemy.sql', None)
-            self.data["sqlalchemy"]["eng"] = span.tags.pop('sqlalchemy.eng', None)
-            self.data["sqlalchemy"]["url"] = span.tags.pop('sqlalchemy.url', None)
-            self.data["sqlalchemy"]["err"] = span.tags.pop('sqlalchemy.err', None)
+            self.data["sqlalchemy"]["sql"] = span.tags.pop("sqlalchemy.sql", None)
+            self.data["sqlalchemy"]["eng"] = span.tags.pop("sqlalchemy.eng", None)
+            self.data["sqlalchemy"]["url"] = span.tags.pop("sqlalchemy.url", None)
+            self.data["sqlalchemy"]["err"] = span.tags.pop("sqlalchemy.err", None)
 
         elif span.operation_name == "mysql":
-            self.data["mysql"]["host"] = span.tags.pop('host', None)
-            self.data["mysql"]["port"] = span.tags.pop('port', None)
+            self.data["mysql"]["host"] = span.tags.pop("host", None)
+            self.data["mysql"]["port"] = span.tags.pop("port", None)
             self.data["mysql"]["db"] = span.tags.pop(ot_tags.DATABASE_INSTANCE, None)
             self.data["mysql"]["user"] = span.tags.pop(ot_tags.DATABASE_USER, None)
             self.data["mysql"]["stmt"] = span.tags.pop(ot_tags.DATABASE_STATEMENT, None)
-            self.data["mysql"]["error"] = span.tags.pop('mysql.error', None)
+            self.data["mysql"]["error"] = span.tags.pop("mysql.error", None)
 
         elif span.operation_name == "postgres":
-            self.data["pg"]["host"] = span.tags.pop('host', None)
-            self.data["pg"]["port"] = span.tags.pop('port', None)
+            self.data["pg"]["host"] = span.tags.pop("host", None)
+            self.data["pg"]["port"] = span.tags.pop("port", None)
             self.data["pg"]["db"] = span.tags.pop(ot_tags.DATABASE_INSTANCE, None)
             self.data["pg"]["user"] = span.tags.pop(ot_tags.DATABASE_USER, None)
             self.data["pg"]["stmt"] = span.tags.pop(ot_tags.DATABASE_STATEMENT, None)
-            self.data["pg"]["error"] = span.tags.pop('pg.error', None)
+            self.data["pg"]["error"] = span.tags.pop("pg.error", None)
 
         elif span.operation_name == "mongo":
-            service = "%s:%s" % (span.tags.pop('host', None), span.tags.pop('port', None))
-            namespace = "%s.%s" % (span.tags.pop('db', "?"), span.tags.pop('collection', "?"))
+            service = "%s:%s" % (
+                span.tags.pop("host", None),
+                span.tags.pop("port", None),
+            )
+            namespace = "%s.%s" % (
+                span.tags.pop("db", "?"),
+                span.tags.pop("collection", "?"),
+            )
 
             self.data["mongo"]["service"] = service
             self.data["mongo"]["namespace"] = namespace
-            self.data["mongo"]["command"] = span.tags.pop('command', None)
-            self.data["mongo"]["filter"] = span.tags.pop('filter', None)
-            self.data["mongo"]["json"] = span.tags.pop('json', None)
-            self.data["mongo"]["error"] = span.tags.pop('error', None)
+            self.data["mongo"]["command"] = span.tags.pop("command", None)
+            self.data["mongo"]["filter"] = span.tags.pop("filter", None)
+            self.data["mongo"]["json"] = span.tags.pop("json", None)
+            self.data["mongo"]["error"] = span.tags.pop("error", None)
 
         elif span.operation_name == "gcs":
-            self.data["gcs"]["op"] = span.tags.pop('gcs.op')
-            self.data["gcs"]["bucket"] = span.tags.pop('gcs.bucket', None)
-            self.data["gcs"]["object"] = span.tags.pop('gcs.object', None)
-            self.data["gcs"]["entity"] = span.tags.pop('gcs.entity', None)
-            self.data["gcs"]["range"] = span.tags.pop('gcs.range', None)
-            self.data["gcs"]["sourceBucket"] = span.tags.pop('gcs.sourceBucket', None)
-            self.data["gcs"]["sourceObject"] = span.tags.pop('gcs.sourceObject', None)
-            self.data["gcs"]["sourceObjects"] = span.tags.pop('gcs.sourceObjects', None)
-            self.data["gcs"]["destinationBucket"] = span.tags.pop('gcs.destinationBucket', None)
-            self.data["gcs"]["destinationObject"] = span.tags.pop('gcs.destinationObject', None)
-            self.data["gcs"]["numberOfOperations"] = span.tags.pop('gcs.numberOfOperations', None)
-            self.data["gcs"]["projectId"] = span.tags.pop('gcs.projectId', None)
-            self.data["gcs"]["accessId"] = span.tags.pop('gcs.accessId', None)
+            self.data["gcs"]["op"] = span.tags.pop("gcs.op")
+            self.data["gcs"]["bucket"] = span.tags.pop("gcs.bucket", None)
+            self.data["gcs"]["object"] = span.tags.pop("gcs.object", None)
+            self.data["gcs"]["entity"] = span.tags.pop("gcs.entity", None)
+            self.data["gcs"]["range"] = span.tags.pop("gcs.range", None)
+            self.data["gcs"]["sourceBucket"] = span.tags.pop("gcs.sourceBucket", None)
+            self.data["gcs"]["sourceObject"] = span.tags.pop("gcs.sourceObject", None)
+            self.data["gcs"]["sourceObjects"] = span.tags.pop("gcs.sourceObjects", None)
+            self.data["gcs"]["destinationBucket"] = span.tags.pop(
+                "gcs.destinationBucket", None
+            )
+            self.data["gcs"]["destinationObject"] = span.tags.pop(
+                "gcs.destinationObject", None
+            )
+            self.data["gcs"]["numberOfOperations"] = span.tags.pop(
+                "gcs.numberOfOperations", None
+            )
+            self.data["gcs"]["projectId"] = span.tags.pop("gcs.projectId", None)
+            self.data["gcs"]["accessId"] = span.tags.pop("gcs.accessId", None)
 
         elif span.operation_name == "gcps-producer":
-            self.data["gcps"]["op"] = span.tags.pop('gcps.op', None)
-            self.data["gcps"]["projid"] = span.tags.pop('gcps.projid', None)
-            self.data["gcps"]["top"] = span.tags.pop('gcps.top', None)
+            self.data["gcps"]["op"] = span.tags.pop("gcps.op", None)
+            self.data["gcps"]["projid"] = span.tags.pop("gcps.projid", None)
+            self.data["gcps"]["top"] = span.tags.pop("gcps.top", None)
 
         elif span.operation_name == "log":
             # use last special key values
-            for l in span.logs:
-                if "message" in l.key_values:
-                    self.data["log"]["message"] = l.key_values.pop("message", None)
-                if "parameters" in l.key_values:
-                    self.data["log"]["parameters"] = l.key_values.pop("parameters", None)
+            for log in span.logs:
+                if "message" in log.key_values:
+                    self.data["log"]["message"] = log.key_values.pop("message", None)
+                if "parameters" in log.key_values:
+                    self.data["log"]["parameters"] = log.key_values.pop(
+                        "parameters", None
+                    )
         else:
             logger.debug("SpanRecorder: Unknown exit span: %s" % span.operation_name)
 
@@ -494,11 +589,11 @@ class RegisteredSpan(BaseSpan):
         self.data["http"]["host"] = span.tags.pop("http.host", None)
         self.data["http"]["url"] = span.tags.pop(ot_tags.HTTP_URL, None)
         self.data["http"]["path"] = span.tags.pop("http.path", None)
-        self.data["http"]["params"] = span.tags.pop('http.params', None)
+        self.data["http"]["params"] = span.tags.pop("http.params", None)
         self.data["http"]["method"] = span.tags.pop(ot_tags.HTTP_METHOD, None)
         self.data["http"]["status"] = span.tags.pop(ot_tags.HTTP_STATUS_CODE, None)
         self.data["http"]["path_tpl"] = span.tags.pop("http.path_tpl", None)
-        self.data["http"]["error"] = span.tags.pop('http.error', None)
+        self.data["http"]["error"] = span.tags.pop("http.error", None)
 
         if len(span.tags) > 0:
             custom_headers = []

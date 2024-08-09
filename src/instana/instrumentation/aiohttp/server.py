@@ -2,7 +2,7 @@
 # (c) Copyright Instana Inc. 2019
 
 
-import opentracing
+import opentracing  # type: ignore
 import wrapt
 
 from ...log import logger
@@ -11,25 +11,24 @@ from ...util.secrets import strip_secrets_from_query
 
 try:
     import aiohttp
-    import asyncio
-
     from aiohttp.web import middleware
-
 
     @middleware
     async def stan_middleware(request, handler):
         try:
             ctx = async_tracer.extract(opentracing.Format.HTTP_HEADERS, request.headers)
-            request['scope'] = async_tracer.start_active_span('aiohttp-server', child_of=ctx)
-            scope = request['scope']
+            request["scope"] = async_tracer.start_active_span(
+                "aiohttp-server", child_of=ctx
+            )
+            scope = request["scope"]
 
             # Query param scrubbing
             url = str(request.url)
-            parts = url.split('?')
+            parts = url.split("?")
             if len(parts) > 1:
-                cleaned_qp = strip_secrets_from_query(parts[1],
-                                                      agent.options.secrets_matcher,
-                                                      agent.options.secrets_list)
+                cleaned_qp = strip_secrets_from_query(
+                    parts[1], agent.options.secrets_matcher, agent.options.secrets_list
+                )
                 scope.span.set_tag("http.params", cleaned_qp)
 
             scope.span.set_tag("http.url", parts[0])
@@ -39,7 +38,10 @@ try:
             if agent.options.extra_http_headers is not None:
                 for custom_header in agent.options.extra_http_headers:
                     if custom_header in request.headers:
-                        scope.span.set_tag("http.header.%s" % custom_header, request.headers[custom_header])
+                        scope.span.set_tag(
+                            "http.header.%s" % custom_header,
+                            request.headers[custom_header],
+                        )
 
             response = None
             try:
@@ -55,8 +57,14 @@ try:
                     scope.span.mark_as_errored()
 
                 scope.span.set_tag("http.status_code", response.status)
-                async_tracer.inject(scope.span.context, opentracing.Format.HTTP_HEADERS, response.headers)
-                response.headers['Server-Timing'] = "intid;desc=%s" % scope.span.context.trace_id
+                async_tracer.inject(
+                    scope.span.context,
+                    opentracing.Format.HTTP_HEADERS,
+                    response.headers,
+                )
+                response.headers["Server-Timing"] = (
+                    "intid;desc=%s" % scope.span.context.trace_id
+                )
 
             return response
         except Exception as exc:
@@ -69,8 +77,7 @@ try:
             if scope is not None:
                 scope.close()
 
-
-    @wrapt.patch_function_wrapper('aiohttp.web', 'Application.__init__')
+    @wrapt.patch_function_wrapper("aiohttp.web", "Application.__init__")
     def init_with_instana(wrapped, instance, argv, kwargs):
         if "middlewares" in kwargs:
             kwargs["middlewares"].insert(0, stan_middleware)
@@ -78,7 +85,6 @@ try:
             kwargs["middlewares"] = [stan_middleware]
 
         return wrapped(*argv, **kwargs)
-
 
     logger.debug("Instrumenting aiohttp server")
 except ImportError:

@@ -2,44 +2,45 @@
 # (c) Copyright Instana Inc. 2020
 
 import unittest
-import urllib3
+
 import flask
+import urllib3
 
-if hasattr(flask.signals, 'signals_available'):
-  from flask.signals import signals_available
+if hasattr(flask.signals, "signals_available"):
+    from flask.signals import signals_available
 else:
-  # Beginning from 2.3.0 as stated in the notes
-  # https://flask.palletsprojects.com/en/2.3.x/changes/#version-2-3-0
-  # "Signals are always available. blinker>=1.6.2 is a required dependency.
-  # The signals_available attribute is deprecated. #5056"
-  signals_available = True
+    # Beginning from 2.3.0 as stated in the notes
+    # https://flask.palletsprojects.com/en/2.3.x/changes/#version-2-3-0
+    # "Signals are always available. blinker>=1.6.2 is a required dependency.
+    # The signals_available attribute is deprecated. #5056"
+    signals_available = True
 
-import tests.apps.flask_app
 from instana.singletons import tracer
+
 from ..helpers import testenv
 
 
 class TestFlask(unittest.TestCase):
     def setUp(self):
-        """ Clear all spans before a test run """
+        """Clear all spans before a test run"""
         self.http = urllib3.PoolManager()
         self.recorder = tracer.recorder
         self.recorder.clear_spans()
 
     def tearDown(self):
-        """ Do nothing for now """
+        """Do nothing for now"""
         return None
 
     def test_vanilla_requests(self):
-        r = self.http.request('GET', testenv["wsgi_server"] + '/')
+        r = self.http.request("GET", testenv["wsgi_server"] + "/")
         self.assertEqual(r.status, 200)
 
         spans = self.recorder.queued_spans()
         self.assertEqual(1, len(spans))
 
     def test_get_request(self):
-        with tracer.start_active_span('test'):
-            response = self.http.request('GET', testenv["wsgi_server"] + '/')
+        with tracer.start_active_span("test"):
+            response = self.http.request("GET", testenv["wsgi_server"] + "/")
 
         spans = self.recorder.queued_spans()
         self.assertEqual(3, len(spans))
@@ -51,20 +52,20 @@ class TestFlask(unittest.TestCase):
         self.assertTrue(response)
         self.assertEqual(200, response.status)
 
-        self.assertIn('X-INSTANA-T', response.headers)
-        self.assertTrue(int(response.headers['X-INSTANA-T'], 16))
-        self.assertEqual(response.headers['X-INSTANA-T'], wsgi_span.t)
+        self.assertIn("X-INSTANA-T", response.headers)
+        self.assertTrue(int(response.headers["X-INSTANA-T"], 16))
+        self.assertEqual(response.headers["X-INSTANA-T"], wsgi_span.t)
 
-        self.assertIn('X-INSTANA-S', response.headers)
-        self.assertTrue(int(response.headers['X-INSTANA-S'], 16))
-        self.assertEqual(response.headers['X-INSTANA-S'], wsgi_span.s)
+        self.assertIn("X-INSTANA-S", response.headers)
+        self.assertTrue(int(response.headers["X-INSTANA-S"], 16))
+        self.assertEqual(response.headers["X-INSTANA-S"], wsgi_span.s)
 
-        self.assertIn('X-INSTANA-L', response.headers)
-        self.assertEqual(response.headers['X-INSTANA-L'], '1')
+        self.assertIn("X-INSTANA-L", response.headers)
+        self.assertEqual(response.headers["X-INSTANA-L"], "1")
 
-        self.assertIn('Server-Timing', response.headers)
+        self.assertIn("Server-Timing", response.headers)
         server_timing_value = "intid;desc=%s" % wsgi_span.t
-        self.assertEqual(response.headers['Server-Timing'], server_timing_value)
+        self.assertEqual(response.headers["Server-Timing"], server_timing_value)
 
         self.assertIsNone(tracer.active_span)
 
@@ -88,9 +89,11 @@ class TestFlask(unittest.TestCase):
 
         # wsgi
         self.assertEqual("wsgi", wsgi_span.n)
-        self.assertEqual('127.0.0.1:' + str(testenv['wsgi_port']), wsgi_span.data["http"]["host"])
-        self.assertEqual('/', wsgi_span.data["http"]["url"])
-        self.assertEqual('GET', wsgi_span.data["http"]["method"])
+        self.assertEqual(
+            "127.0.0.1:" + str(testenv["wsgi_port"]), wsgi_span.data["http"]["host"]
+        )
+        self.assertEqual("/", wsgi_span.data["http"]["url"])
+        self.assertEqual("GET", wsgi_span.data["http"]["method"])
         self.assertEqual(200, wsgi_span.data["http"]["status"])
         self.assertIsNone(wsgi_span.data["http"]["error"])
         self.assertIsNone(wsgi_span.stack)
@@ -99,7 +102,7 @@ class TestFlask(unittest.TestCase):
         self.assertEqual("test", test_span.data["sdk"]["name"])
         self.assertEqual("urllib3", urllib3_span.n)
         self.assertEqual(200, urllib3_span.data["http"]["status"])
-        self.assertEqual(testenv["wsgi_server"] + '/', urllib3_span.data["http"]["url"])
+        self.assertEqual(testenv["wsgi_server"] + "/", urllib3_span.data["http"]["url"])
         self.assertEqual("GET", urllib3_span.data["http"]["method"])
         self.assertIsNotNone(urllib3_span.stack)
         self.assertTrue(type(urllib3_span.stack) is list)
@@ -109,58 +112,61 @@ class TestFlask(unittest.TestCase):
         self.assertIsNone(wsgi_span.data["http"]["path_tpl"])
 
     def test_get_request_with_suppression(self):
-        headers = {'X-INSTANA-L':'0'}
-        response = self.http.urlopen('GET', testenv["wsgi_server"] + '/', headers=headers)
+        headers = {"X-INSTANA-L": "0"}
+        response = self.http.urlopen(
+            "GET", testenv["wsgi_server"] + "/", headers=headers
+        )
 
         spans = self.recorder.queued_spans()
 
-        self.assertEqual(response.headers.get('X-INSTANA-L', None), '0')
+        self.assertEqual(response.headers.get("X-INSTANA-L", None), "0")
         # The traceparent has to be present
-        self.assertIsNotNone(response.headers.get('traceparent', None))
+        self.assertIsNotNone(response.headers.get("traceparent", None))
         # The last digit of the traceparent has to be 0
-        self.assertEqual(response.headers['traceparent'][-1], '0')
+        self.assertEqual(response.headers["traceparent"][-1], "0")
 
         # This should not be present
-        self.assertIsNone(response.headers.get('tracestate', None))
+        self.assertIsNone(response.headers.get("tracestate", None))
 
         # Assert that there isn't any span, where level is not 0!
-        self.assertFalse(any(map(lambda x: x.l != 0, spans)))
+        self.assertFalse(any((x.l != 0 for x in spans)))
 
         # Assert that there are no spans in the recorded list
         self.assertEqual(spans, [])
 
     def test_get_request_with_suppression_and_w3c(self):
         headers = {
-                'X-INSTANA-L':'0',
-                'traceparent': '00-0af7651916cd43dd8448eb211c80319c-b9c7c989f97918e1-01',
-                'tracestate': 'congo=ucfJifl5GOE,rojo=00f067aa0ba902b7'}
+            "X-INSTANA-L": "0",
+            "traceparent": "00-0af7651916cd43dd8448eb211c80319c-b9c7c989f97918e1-01",
+            "tracestate": "congo=ucfJifl5GOE,rojo=00f067aa0ba902b7",
+        }
 
-        response = self.http.urlopen('GET', testenv["wsgi_server"] + '/', headers=headers)
+        response = self.http.urlopen(
+            "GET", testenv["wsgi_server"] + "/", headers=headers
+        )
 
         spans = self.recorder.queued_spans()
 
-        self.assertEqual(response.headers.get('X-INSTANA-L', None), '0')
-        self.assertIsNotNone(response.headers.get('traceparent', None))
-        self.assertEqual(response.headers['traceparent'][-1], '0')
+        self.assertEqual(response.headers.get("X-INSTANA-L", None), "0")
+        self.assertIsNotNone(response.headers.get("traceparent", None))
+        self.assertEqual(response.headers["traceparent"][-1], "0")
         # The tracestate has to be present
-        self.assertIsNotNone(response.headers.get('tracestate', None))
+        self.assertIsNotNone(response.headers.get("tracestate", None))
 
         # The 'in=' section can not be in the tracestate
-        self.assertTrue('in=' not in response.headers['tracestate'])
+        self.assertTrue("in=" not in response.headers["tracestate"])
 
         # Assert that there isn't any span, where level is not 0!
-        self.assertFalse(any(map(lambda x: x.l != 0, spans)))
+        self.assertFalse(any((x.l != 0 for x in spans)))
 
         # Assert that there are no spans in the recorded list
         self.assertEqual(spans, [])
 
     def test_synthetic_request(self):
-        headers = {
-            'X-INSTANA-SYNTHETIC': '1'
-        }
+        headers = {"X-INSTANA-SYNTHETIC": "1"}
 
-        with tracer.start_active_span('test'):
-            response = self.http.request('GET', testenv["wsgi_server"] + '/', headers=headers)
+        with tracer.start_active_span("test"):
+            self.http.request("GET", testenv["wsgi_server"] + "/", headers=headers)
 
         spans = self.recorder.queued_spans()
         self.assertEqual(3, len(spans))
@@ -174,8 +180,8 @@ class TestFlask(unittest.TestCase):
         self.assertIsNone(test_span.sy)
 
     def test_render_template(self):
-        with tracer.start_active_span('test'):
-            response = self.http.request('GET', testenv["wsgi_server"] + '/render')
+        with tracer.start_active_span("test"):
+            response = self.http.request("GET", testenv["wsgi_server"] + "/render")
 
         spans = self.recorder.queued_spans()
         self.assertEqual(4, len(spans))
@@ -188,20 +194,20 @@ class TestFlask(unittest.TestCase):
         self.assertTrue(response)
         self.assertEqual(200, response.status)
 
-        self.assertIn('X-INSTANA-T', response.headers)
-        self.assertTrue(int(response.headers['X-INSTANA-T'], 16))
-        self.assertEqual(response.headers['X-INSTANA-T'], wsgi_span.t)
+        self.assertIn("X-INSTANA-T", response.headers)
+        self.assertTrue(int(response.headers["X-INSTANA-T"], 16))
+        self.assertEqual(response.headers["X-INSTANA-T"], wsgi_span.t)
 
-        self.assertIn('X-INSTANA-S', response.headers)
-        self.assertTrue(int(response.headers['X-INSTANA-S'], 16))
-        self.assertEqual(response.headers['X-INSTANA-S'], wsgi_span.s)
+        self.assertIn("X-INSTANA-S", response.headers)
+        self.assertTrue(int(response.headers["X-INSTANA-S"], 16))
+        self.assertEqual(response.headers["X-INSTANA-S"], wsgi_span.s)
 
-        self.assertIn('X-INSTANA-L', response.headers)
-        self.assertEqual(response.headers['X-INSTANA-L'], '1')
+        self.assertIn("X-INSTANA-L", response.headers)
+        self.assertEqual(response.headers["X-INSTANA-L"], "1")
 
-        self.assertIn('Server-Timing', response.headers)
+        self.assertIn("Server-Timing", response.headers)
         server_timing_value = "intid;desc=%s" % wsgi_span.t
-        self.assertEqual(response.headers['Server-Timing'], server_timing_value)
+        self.assertEqual(response.headers["Server-Timing"], server_timing_value)
 
         self.assertIsNone(tracer.active_span)
 
@@ -224,16 +230,20 @@ class TestFlask(unittest.TestCase):
         # render
         self.assertEqual("render", render_span.n)
         self.assertEqual(3, render_span.k)
-        self.assertEqual('flask_render_template.html', render_span.data["render"]["name"])
-        self.assertEqual('template', render_span.data["render"]["type"])
+        self.assertEqual(
+            "flask_render_template.html", render_span.data["render"]["name"]
+        )
+        self.assertEqual("template", render_span.data["render"]["type"])
         self.assertIsNone(render_span.data["log"]["message"])
         self.assertIsNone(render_span.data["log"]["parameters"])
 
         # wsgi
         self.assertEqual("wsgi", wsgi_span.n)
-        self.assertEqual('127.0.0.1:' + str(testenv['wsgi_port']), wsgi_span.data["http"]["host"])
-        self.assertEqual('/render', wsgi_span.data["http"]["url"])
-        self.assertEqual('GET', wsgi_span.data["http"]["method"])
+        self.assertEqual(
+            "127.0.0.1:" + str(testenv["wsgi_port"]), wsgi_span.data["http"]["host"]
+        )
+        self.assertEqual("/render", wsgi_span.data["http"]["url"])
+        self.assertEqual("GET", wsgi_span.data["http"]["method"])
         self.assertEqual(200, wsgi_span.data["http"]["status"])
         self.assertIsNone(wsgi_span.data["http"]["error"])
         self.assertIsNone(wsgi_span.stack)
@@ -242,7 +252,9 @@ class TestFlask(unittest.TestCase):
         self.assertEqual("test", test_span.data["sdk"]["name"])
         self.assertEqual("urllib3", urllib3_span.n)
         self.assertEqual(200, urllib3_span.data["http"]["status"])
-        self.assertEqual(testenv["wsgi_server"] + '/render', urllib3_span.data["http"]["url"])
+        self.assertEqual(
+            testenv["wsgi_server"] + "/render", urllib3_span.data["http"]["url"]
+        )
         self.assertEqual("GET", urllib3_span.data["http"]["method"])
         self.assertIsNotNone(urllib3_span.stack)
         self.assertTrue(type(urllib3_span.stack) is list)
@@ -252,8 +264,10 @@ class TestFlask(unittest.TestCase):
         self.assertIsNone(wsgi_span.data["http"]["path_tpl"])
 
     def test_render_template_string(self):
-        with tracer.start_active_span('test'):
-            response = self.http.request('GET', testenv["wsgi_server"] + '/render_string')
+        with tracer.start_active_span("test"):
+            response = self.http.request(
+                "GET", testenv["wsgi_server"] + "/render_string"
+            )
 
         spans = self.recorder.queued_spans()
         self.assertEqual(4, len(spans))
@@ -266,20 +280,20 @@ class TestFlask(unittest.TestCase):
         self.assertTrue(response)
         self.assertEqual(200, response.status)
 
-        self.assertIn('X-INSTANA-T', response.headers)
-        self.assertTrue(int(response.headers['X-INSTANA-T'], 16))
-        self.assertEqual(response.headers['X-INSTANA-T'], wsgi_span.t)
+        self.assertIn("X-INSTANA-T", response.headers)
+        self.assertTrue(int(response.headers["X-INSTANA-T"], 16))
+        self.assertEqual(response.headers["X-INSTANA-T"], wsgi_span.t)
 
-        self.assertIn('X-INSTANA-S', response.headers)
-        self.assertTrue(int(response.headers['X-INSTANA-S'], 16))
-        self.assertEqual(response.headers['X-INSTANA-S'], wsgi_span.s)
+        self.assertIn("X-INSTANA-S", response.headers)
+        self.assertTrue(int(response.headers["X-INSTANA-S"], 16))
+        self.assertEqual(response.headers["X-INSTANA-S"], wsgi_span.s)
 
-        self.assertIn('X-INSTANA-L', response.headers)
-        self.assertEqual(response.headers['X-INSTANA-L'], '1')
+        self.assertIn("X-INSTANA-L", response.headers)
+        self.assertEqual(response.headers["X-INSTANA-L"], "1")
 
-        self.assertIn('Server-Timing', response.headers)
+        self.assertIn("Server-Timing", response.headers)
         server_timing_value = "intid;desc=%s" % wsgi_span.t
-        self.assertEqual(response.headers['Server-Timing'], server_timing_value)
+        self.assertEqual(response.headers["Server-Timing"], server_timing_value)
 
         self.assertIsNone(tracer.active_span)
 
@@ -302,16 +316,18 @@ class TestFlask(unittest.TestCase):
         # render
         self.assertEqual("render", render_span.n)
         self.assertEqual(3, render_span.k)
-        self.assertEqual('(from string)', render_span.data["render"]["name"])
-        self.assertEqual('template', render_span.data["render"]["type"])
+        self.assertEqual("(from string)", render_span.data["render"]["name"])
+        self.assertEqual("template", render_span.data["render"]["type"])
         self.assertIsNone(render_span.data["log"]["message"])
         self.assertIsNone(render_span.data["log"]["parameters"])
 
         # wsgi
         self.assertEqual("wsgi", wsgi_span.n)
-        self.assertEqual('127.0.0.1:' + str(testenv['wsgi_port']), wsgi_span.data["http"]["host"])
-        self.assertEqual('/render_string', wsgi_span.data["http"]["url"])
-        self.assertEqual('GET', wsgi_span.data["http"]["method"])
+        self.assertEqual(
+            "127.0.0.1:" + str(testenv["wsgi_port"]), wsgi_span.data["http"]["host"]
+        )
+        self.assertEqual("/render_string", wsgi_span.data["http"]["url"])
+        self.assertEqual("GET", wsgi_span.data["http"]["method"])
         self.assertEqual(200, wsgi_span.data["http"]["status"])
         self.assertIsNone(wsgi_span.data["http"]["error"])
         self.assertIsNone(wsgi_span.stack)
@@ -320,7 +336,9 @@ class TestFlask(unittest.TestCase):
         self.assertEqual("test", test_span.data["sdk"]["name"])
         self.assertEqual("urllib3", urllib3_span.n)
         self.assertEqual(200, urllib3_span.data["http"]["status"])
-        self.assertEqual(testenv["wsgi_server"] + '/render_string', urllib3_span.data["http"]["url"])
+        self.assertEqual(
+            testenv["wsgi_server"] + "/render_string", urllib3_span.data["http"]["url"]
+        )
         self.assertEqual("GET", urllib3_span.data["http"]["method"])
         self.assertIsNotNone(urllib3_span.stack)
         self.assertTrue(type(urllib3_span.stack) is list)
@@ -330,8 +348,10 @@ class TestFlask(unittest.TestCase):
         self.assertIsNone(wsgi_span.data["http"]["path_tpl"])
 
     def test_301(self):
-        with tracer.start_active_span('test'):
-            response = self.http.request('GET', testenv["wsgi_server"] + '/301', redirect=False)
+        with tracer.start_active_span("test"):
+            response = self.http.request(
+                "GET", testenv["wsgi_server"] + "/301", redirect=False
+            )
 
         spans = self.recorder.queued_spans()
 
@@ -344,20 +364,20 @@ class TestFlask(unittest.TestCase):
         self.assertTrue(response)
         self.assertEqual(301, response.status)
 
-        self.assertIn('X-INSTANA-T', response.headers)
-        self.assertTrue(int(response.headers['X-INSTANA-T'], 16))
-        self.assertEqual(response.headers['X-INSTANA-T'], wsgi_span.t)
+        self.assertIn("X-INSTANA-T", response.headers)
+        self.assertTrue(int(response.headers["X-INSTANA-T"], 16))
+        self.assertEqual(response.headers["X-INSTANA-T"], wsgi_span.t)
 
-        self.assertIn('X-INSTANA-S', response.headers)
-        self.assertTrue(int(response.headers['X-INSTANA-S'], 16))
-        self.assertEqual(response.headers['X-INSTANA-S'], wsgi_span.s)
+        self.assertIn("X-INSTANA-S", response.headers)
+        self.assertTrue(int(response.headers["X-INSTANA-S"], 16))
+        self.assertEqual(response.headers["X-INSTANA-S"], wsgi_span.s)
 
-        self.assertIn('X-INSTANA-L', response.headers)
-        self.assertEqual(response.headers['X-INSTANA-L'], '1')
+        self.assertIn("X-INSTANA-L", response.headers)
+        self.assertEqual(response.headers["X-INSTANA-L"], "1")
 
-        self.assertIn('Server-Timing', response.headers)
+        self.assertIn("Server-Timing", response.headers)
         server_timing_value = "intid;desc=%s" % wsgi_span.t
-        self.assertEqual(response.headers['Server-Timing'], server_timing_value)
+        self.assertEqual(response.headers["Server-Timing"], server_timing_value)
 
         self.assertIsNone(tracer.active_span)
 
@@ -376,9 +396,11 @@ class TestFlask(unittest.TestCase):
 
         # wsgi
         self.assertEqual("wsgi", wsgi_span.n)
-        self.assertEqual('127.0.0.1:' + str(testenv['wsgi_port']), wsgi_span.data["http"]["host"])
-        self.assertEqual('/301', wsgi_span.data["http"]["url"])
-        self.assertEqual('GET', wsgi_span.data["http"]["method"])
+        self.assertEqual(
+            "127.0.0.1:" + str(testenv["wsgi_port"]), wsgi_span.data["http"]["host"]
+        )
+        self.assertEqual("/301", wsgi_span.data["http"]["url"])
+        self.assertEqual("GET", wsgi_span.data["http"]["method"])
         self.assertEqual(301, wsgi_span.data["http"]["status"])
         self.assertIsNone(wsgi_span.data["http"]["error"])
         self.assertIsNone(wsgi_span.stack)
@@ -387,7 +409,9 @@ class TestFlask(unittest.TestCase):
         self.assertEqual("test", test_span.data["sdk"]["name"])
         self.assertEqual("urllib3", urllib3_span.n)
         self.assertEqual(301, urllib3_span.data["http"]["status"])
-        self.assertEqual(testenv["wsgi_server"] + '/301', urllib3_span.data["http"]["url"])
+        self.assertEqual(
+            testenv["wsgi_server"] + "/301", urllib3_span.data["http"]["url"]
+        )
         self.assertEqual("GET", urllib3_span.data["http"]["method"])
         self.assertIsNotNone(urllib3_span.stack)
         self.assertTrue(type(urllib3_span.stack) is list)
@@ -397,8 +421,8 @@ class TestFlask(unittest.TestCase):
         self.assertIsNone(wsgi_span.data["http"]["path_tpl"])
 
     def test_custom_404(self):
-        with tracer.start_active_span('test'):
-            response = self.http.request('GET', testenv["wsgi_server"] + '/custom-404')
+        with tracer.start_active_span("test"):
+            response = self.http.request("GET", testenv["wsgi_server"] + "/custom-404")
 
         spans = self.recorder.queued_spans()
 
@@ -443,9 +467,11 @@ class TestFlask(unittest.TestCase):
 
         # wsgi
         self.assertEqual("wsgi", wsgi_span.n)
-        self.assertEqual('127.0.0.1:' + str(testenv['wsgi_port']), wsgi_span.data["http"]["host"])
-        self.assertEqual('/custom-404', wsgi_span.data["http"]["url"])
-        self.assertEqual('GET', wsgi_span.data["http"]["method"])
+        self.assertEqual(
+            "127.0.0.1:" + str(testenv["wsgi_port"]), wsgi_span.data["http"]["host"]
+        )
+        self.assertEqual("/custom-404", wsgi_span.data["http"]["url"])
+        self.assertEqual("GET", wsgi_span.data["http"]["method"])
         self.assertEqual(404, wsgi_span.data["http"]["status"])
         self.assertIsNone(wsgi_span.data["http"]["error"])
         self.assertIsNone(wsgi_span.stack)
@@ -454,7 +480,9 @@ class TestFlask(unittest.TestCase):
         self.assertEqual("test", test_span.data["sdk"]["name"])
         self.assertEqual("urllib3", urllib3_span.n)
         self.assertEqual(404, urllib3_span.data["http"]["status"])
-        self.assertEqual(testenv["wsgi_server"] + '/custom-404', urllib3_span.data["http"]["url"])
+        self.assertEqual(
+            testenv["wsgi_server"] + "/custom-404", urllib3_span.data["http"]["url"]
+        )
         self.assertEqual("GET", urllib3_span.data["http"]["method"])
         self.assertIsNotNone(urllib3_span.stack)
         self.assertTrue(type(urllib3_span.stack) is list)
@@ -464,8 +492,8 @@ class TestFlask(unittest.TestCase):
         self.assertIsNone(wsgi_span.data["http"]["path_tpl"])
 
     def test_404(self):
-        with tracer.start_active_span('test'):
-            response = self.http.request('GET', testenv["wsgi_server"] + '/11111111111')
+        with tracer.start_active_span("test"):
+            response = self.http.request("GET", testenv["wsgi_server"] + "/11111111111")
 
         spans = self.recorder.queued_spans()
 
@@ -510,9 +538,11 @@ class TestFlask(unittest.TestCase):
 
         # wsgi
         self.assertEqual("wsgi", wsgi_span.n)
-        self.assertEqual('127.0.0.1:' + str(testenv['wsgi_port']), wsgi_span.data["http"]["host"])
-        self.assertEqual('/11111111111', wsgi_span.data["http"]["url"])
-        self.assertEqual('GET', wsgi_span.data["http"]["method"])
+        self.assertEqual(
+            "127.0.0.1:" + str(testenv["wsgi_port"]), wsgi_span.data["http"]["host"]
+        )
+        self.assertEqual("/11111111111", wsgi_span.data["http"]["url"])
+        self.assertEqual("GET", wsgi_span.data["http"]["method"])
         self.assertEqual(404, wsgi_span.data["http"]["status"])
         self.assertIsNone(wsgi_span.data["http"]["error"])
         self.assertIsNone(wsgi_span.stack)
@@ -521,7 +551,9 @@ class TestFlask(unittest.TestCase):
         self.assertEqual("test", test_span.data["sdk"]["name"])
         self.assertEqual("urllib3", urllib3_span.n)
         self.assertEqual(404, urllib3_span.data["http"]["status"])
-        self.assertEqual(testenv["wsgi_server"] + '/11111111111', urllib3_span.data["http"]["url"])
+        self.assertEqual(
+            testenv["wsgi_server"] + "/11111111111", urllib3_span.data["http"]["url"]
+        )
         self.assertEqual("GET", urllib3_span.data["http"]["method"])
         self.assertIsNotNone(urllib3_span.stack)
         self.assertTrue(type(urllib3_span.stack) is list)
@@ -531,8 +563,8 @@ class TestFlask(unittest.TestCase):
         self.assertIsNone(wsgi_span.data["http"]["path_tpl"])
 
     def test_500(self):
-        with tracer.start_active_span('test'):
-            response = self.http.request('GET', testenv["wsgi_server"] + '/500')
+        with tracer.start_active_span("test"):
+            response = self.http.request("GET", testenv["wsgi_server"] + "/500")
 
         spans = self.recorder.queued_spans()
 
@@ -545,20 +577,20 @@ class TestFlask(unittest.TestCase):
         self.assertTrue(response)
         self.assertEqual(500, response.status)
 
-        self.assertIn('X-INSTANA-T', response.headers)
-        self.assertTrue(int(response.headers['X-INSTANA-T'], 16))
-        self.assertEqual(response.headers['X-INSTANA-T'], wsgi_span.t)
+        self.assertIn("X-INSTANA-T", response.headers)
+        self.assertTrue(int(response.headers["X-INSTANA-T"], 16))
+        self.assertEqual(response.headers["X-INSTANA-T"], wsgi_span.t)
 
-        self.assertIn('X-INSTANA-S', response.headers)
-        self.assertTrue(int(response.headers['X-INSTANA-S'], 16))
-        self.assertEqual(response.headers['X-INSTANA-S'], wsgi_span.s)
+        self.assertIn("X-INSTANA-S", response.headers)
+        self.assertTrue(int(response.headers["X-INSTANA-S"], 16))
+        self.assertEqual(response.headers["X-INSTANA-S"], wsgi_span.s)
 
-        self.assertIn('X-INSTANA-L', response.headers)
-        self.assertEqual(response.headers['X-INSTANA-L'], '1')
+        self.assertIn("X-INSTANA-L", response.headers)
+        self.assertEqual(response.headers["X-INSTANA-L"], "1")
 
-        self.assertIn('Server-Timing', response.headers)
+        self.assertIn("Server-Timing", response.headers)
         server_timing_value = "intid;desc=%s" % wsgi_span.t
-        self.assertEqual(response.headers['Server-Timing'], server_timing_value)
+        self.assertEqual(response.headers["Server-Timing"], server_timing_value)
 
         self.assertIsNone(tracer.active_span)
 
@@ -577,9 +609,11 @@ class TestFlask(unittest.TestCase):
 
         # wsgi
         self.assertEqual("wsgi", wsgi_span.n)
-        self.assertEqual('127.0.0.1:' + str(testenv['wsgi_port']), wsgi_span.data["http"]["host"])
-        self.assertEqual('/500', wsgi_span.data["http"]["url"])
-        self.assertEqual('GET', wsgi_span.data["http"]["method"])
+        self.assertEqual(
+            "127.0.0.1:" + str(testenv["wsgi_port"]), wsgi_span.data["http"]["host"]
+        )
+        self.assertEqual("/500", wsgi_span.data["http"]["url"])
+        self.assertEqual("GET", wsgi_span.data["http"]["method"])
         self.assertEqual(500, wsgi_span.data["http"]["status"])
         self.assertIsNone(wsgi_span.data["http"]["error"])
         self.assertIsNone(wsgi_span.stack)
@@ -588,7 +622,9 @@ class TestFlask(unittest.TestCase):
         self.assertEqual("test", test_span.data["sdk"]["name"])
         self.assertEqual("urllib3", urllib3_span.n)
         self.assertEqual(500, urllib3_span.data["http"]["status"])
-        self.assertEqual(testenv["wsgi_server"] + '/500', urllib3_span.data["http"]["url"])
+        self.assertEqual(
+            testenv["wsgi_server"] + "/500", urllib3_span.data["http"]["url"]
+        )
         self.assertEqual("GET", urllib3_span.data["http"]["method"])
         self.assertIsNotNone(urllib3_span.stack)
         self.assertTrue(type(urllib3_span.stack) is list)
@@ -601,8 +637,10 @@ class TestFlask(unittest.TestCase):
         if signals_available is True:
             raise unittest.SkipTest("Exceptions without handlers vary with blinker")
 
-        with tracer.start_active_span('test'):
-            response = self.http.request('GET', testenv["wsgi_server"] + '/render_error')
+        with tracer.start_active_span("test"):
+            response = self.http.request(
+                "GET", testenv["wsgi_server"] + "/render_error"
+            )
 
         spans = self.recorder.queued_spans()
 
@@ -648,14 +686,21 @@ class TestFlask(unittest.TestCase):
 
         # error log
         self.assertEqual("log", log_span.n)
-        self.assertEqual('Exception on /render_error [GET]', log_span.data["log"]['message'])
-        self.assertEqual("<class 'jinja2.exceptions.TemplateSyntaxError'> unexpected '}'", log_span.data["log"]['parameters'])
+        self.assertEqual(
+            "Exception on /render_error [GET]", log_span.data["log"]["message"]
+        )
+        self.assertEqual(
+            "<class 'jinja2.exceptions.TemplateSyntaxError'> unexpected '}'",
+            log_span.data["log"]["parameters"],
+        )
 
         # wsgi
         self.assertEqual("wsgi", wsgi_span.n)
-        self.assertEqual('127.0.0.1:' + str(testenv['wsgi_port']), wsgi_span.data["http"]["host"])
-        self.assertEqual('/render_error', wsgi_span.data["http"]["url"])
-        self.assertEqual('GET', wsgi_span.data["http"]["method"])
+        self.assertEqual(
+            "127.0.0.1:" + str(testenv["wsgi_port"]), wsgi_span.data["http"]["host"]
+        )
+        self.assertEqual("/render_error", wsgi_span.data["http"]["url"])
+        self.assertEqual("GET", wsgi_span.data["http"]["method"])
         self.assertEqual(500, wsgi_span.data["http"]["status"])
         self.assertIsNone(wsgi_span.data["http"]["error"])
         self.assertIsNone(wsgi_span.stack)
@@ -664,7 +709,9 @@ class TestFlask(unittest.TestCase):
         self.assertEqual("test", test_span.data["sdk"]["name"])
         self.assertEqual("urllib3", urllib3_span.n)
         self.assertEqual(500, urllib3_span.data["http"]["status"])
-        self.assertEqual(testenv["wsgi_server"] + '/render_error', urllib3_span.data["http"]["url"])
+        self.assertEqual(
+            testenv["wsgi_server"] + "/render_error", urllib3_span.data["http"]["url"]
+        )
         self.assertEqual("GET", urllib3_span.data["http"]["method"])
         self.assertIsNotNone(urllib3_span.stack)
         self.assertTrue(type(urllib3_span.stack) is list)
@@ -677,8 +724,8 @@ class TestFlask(unittest.TestCase):
         if signals_available is True:
             raise unittest.SkipTest("Exceptions without handlers vary with blinker")
 
-        with tracer.start_active_span('test'):
-            response = self.http.request('GET', testenv["wsgi_server"] + '/exception')
+        with tracer.start_active_span("test"):
+            response = self.http.request("GET", testenv["wsgi_server"] + "/exception")
 
         spans = self.recorder.queued_spans()
 
@@ -711,15 +758,20 @@ class TestFlask(unittest.TestCase):
 
         # error log
         self.assertEqual("log", log_span.n)
-        self.assertEqual('Exception on /exception [GET]', log_span.data["log"]['message'])
-        self.assertEqual("<class 'Exception'> fake error", log_span.data["log"]['parameters'])
-
+        self.assertEqual(
+            "Exception on /exception [GET]", log_span.data["log"]["message"]
+        )
+        self.assertEqual(
+            "<class 'Exception'> fake error", log_span.data["log"]["parameters"]
+        )
 
         # wsgis
         self.assertEqual("wsgi", wsgi_span.n)
-        self.assertEqual('127.0.0.1:' + str(testenv['wsgi_port']), wsgi_span.data["http"]["host"])
-        self.assertEqual('/exception', wsgi_span.data["http"]["url"])
-        self.assertEqual('GET', wsgi_span.data["http"]["method"])
+        self.assertEqual(
+            "127.0.0.1:" + str(testenv["wsgi_port"]), wsgi_span.data["http"]["host"]
+        )
+        self.assertEqual("/exception", wsgi_span.data["http"]["url"])
+        self.assertEqual("GET", wsgi_span.data["http"]["method"])
         self.assertEqual(500, wsgi_span.data["http"]["status"])
         self.assertIsNone(wsgi_span.data["http"]["error"])
         self.assertIsNone(wsgi_span.stack)
@@ -728,7 +780,9 @@ class TestFlask(unittest.TestCase):
         self.assertEqual("test", test_span.data["sdk"]["name"])
         self.assertEqual("urllib3", urllib3_span.n)
         self.assertEqual(500, urllib3_span.data["http"]["status"])
-        self.assertEqual(testenv["wsgi_server"] + '/exception', urllib3_span.data["http"]["url"])
+        self.assertEqual(
+            testenv["wsgi_server"] + "/exception", urllib3_span.data["http"]["url"]
+        )
         self.assertEqual("GET", urllib3_span.data["http"]["method"])
         self.assertIsNotNone(urllib3_span.stack)
         self.assertTrue(type(urllib3_span.stack) is list)
@@ -738,8 +792,10 @@ class TestFlask(unittest.TestCase):
         self.assertIsNone(wsgi_span.data["http"]["path_tpl"])
 
     def test_custom_exception_with_log(self):
-        with tracer.start_active_span('test'):
-            response = self.http.request('GET', testenv["wsgi_server"] + '/exception-invalid-usage')
+        with tracer.start_active_span("test"):
+            response = self.http.request(
+                "GET", testenv["wsgi_server"] + "/exception-invalid-usage"
+            )
 
         spans = self.recorder.queued_spans()
 
@@ -753,20 +809,20 @@ class TestFlask(unittest.TestCase):
         self.assertTrue(response)
         self.assertEqual(502, response.status)
 
-        self.assertIn('X-INSTANA-T', response.headers)
-        self.assertTrue(int(response.headers['X-INSTANA-T'], 16))
-        self.assertEqual(response.headers['X-INSTANA-T'], wsgi_span.t)
+        self.assertIn("X-INSTANA-T", response.headers)
+        self.assertTrue(int(response.headers["X-INSTANA-T"], 16))
+        self.assertEqual(response.headers["X-INSTANA-T"], wsgi_span.t)
 
-        self.assertIn('X-INSTANA-S', response.headers)
-        self.assertTrue(int(response.headers['X-INSTANA-S'], 16))
-        self.assertEqual(response.headers['X-INSTANA-S'], wsgi_span.s)
+        self.assertIn("X-INSTANA-S", response.headers)
+        self.assertTrue(int(response.headers["X-INSTANA-S"], 16))
+        self.assertEqual(response.headers["X-INSTANA-S"], wsgi_span.s)
 
-        self.assertIn('X-INSTANA-L', response.headers)
-        self.assertEqual(response.headers['X-INSTANA-L'], '1')
+        self.assertIn("X-INSTANA-L", response.headers)
+        self.assertEqual(response.headers["X-INSTANA-L"], "1")
 
-        self.assertIn('Server-Timing', response.headers)
+        self.assertIn("Server-Timing", response.headers)
         server_timing_value = "intid;desc=%s" % wsgi_span.t
-        self.assertEqual(response.headers['Server-Timing'], server_timing_value)
+        self.assertEqual(response.headers["Server-Timing"], server_timing_value)
 
         self.assertIsNone(tracer.active_span)
 
@@ -786,23 +842,33 @@ class TestFlask(unittest.TestCase):
 
         # error log
         self.assertEqual("log", log_span.n)
-        self.assertEqual('InvalidUsage error handler invoked', log_span.data["log"]['message'])
-        self.assertEqual("<class 'tests.apps.flask_app.app.InvalidUsage'> ", log_span.data["log"]['parameters'])
+        self.assertEqual(
+            "InvalidUsage error handler invoked", log_span.data["log"]["message"]
+        )
+        self.assertEqual(
+            "<class 'tests.apps.flask_app.app.InvalidUsage'> ",
+            log_span.data["log"]["parameters"],
+        )
 
         # wsgi
         self.assertEqual("wsgi", wsgi_span.n)
-        self.assertEqual('127.0.0.1:' + str(testenv['wsgi_port']), wsgi_span.data["http"]["host"])
-        self.assertEqual('/exception-invalid-usage', wsgi_span.data["http"]["url"])
-        self.assertEqual('GET', wsgi_span.data["http"]["method"])
+        self.assertEqual(
+            "127.0.0.1:" + str(testenv["wsgi_port"]), wsgi_span.data["http"]["host"]
+        )
+        self.assertEqual("/exception-invalid-usage", wsgi_span.data["http"]["url"])
+        self.assertEqual("GET", wsgi_span.data["http"]["method"])
         self.assertEqual(502, wsgi_span.data["http"]["status"])
-        self.assertEqual('Simulated custom exception', wsgi_span.data["http"]["error"])
+        self.assertEqual("Simulated custom exception", wsgi_span.data["http"]["error"])
         self.assertIsNone(wsgi_span.stack)
 
         # urllib3
         self.assertEqual("test", test_span.data["sdk"]["name"])
         self.assertEqual("urllib3", urllib3_span.n)
         self.assertEqual(502, urllib3_span.data["http"]["status"])
-        self.assertEqual(testenv["wsgi_server"] + '/exception-invalid-usage', urllib3_span.data["http"]["url"])
+        self.assertEqual(
+            testenv["wsgi_server"] + "/exception-invalid-usage",
+            urllib3_span.data["http"]["url"],
+        )
         self.assertEqual("GET", urllib3_span.data["http"]["method"])
         self.assertIsNotNone(urllib3_span.stack)
         self.assertTrue(type(urllib3_span.stack) is list)
@@ -812,8 +878,10 @@ class TestFlask(unittest.TestCase):
         self.assertIsNone(wsgi_span.data["http"]["path_tpl"])
 
     def test_path_templates(self):
-        with tracer.start_active_span('test'):
-            response = self.http.request('GET', testenv["wsgi_server"] + '/users/Ricky/sayhello')
+        with tracer.start_active_span("test"):
+            response = self.http.request(
+                "GET", testenv["wsgi_server"] + "/users/Ricky/sayhello"
+            )
 
         spans = self.recorder.queued_spans()
         self.assertEqual(3, len(spans))
@@ -825,20 +893,20 @@ class TestFlask(unittest.TestCase):
         self.assertTrue(response)
         self.assertEqual(200, response.status)
 
-        self.assertIn('X-INSTANA-T', response.headers)
-        self.assertTrue(int(response.headers['X-INSTANA-T'], 16))
-        self.assertEqual(response.headers['X-INSTANA-T'], wsgi_span.t)
+        self.assertIn("X-INSTANA-T", response.headers)
+        self.assertTrue(int(response.headers["X-INSTANA-T"], 16))
+        self.assertEqual(response.headers["X-INSTANA-T"], wsgi_span.t)
 
-        self.assertIn('X-INSTANA-S', response.headers)
-        self.assertTrue(int(response.headers['X-INSTANA-S'], 16))
-        self.assertEqual(response.headers['X-INSTANA-S'], wsgi_span.s)
+        self.assertIn("X-INSTANA-S", response.headers)
+        self.assertTrue(int(response.headers["X-INSTANA-S"], 16))
+        self.assertEqual(response.headers["X-INSTANA-S"], wsgi_span.s)
 
-        self.assertIn('X-INSTANA-L', response.headers)
-        self.assertEqual(response.headers['X-INSTANA-L'], '1')
+        self.assertIn("X-INSTANA-L", response.headers)
+        self.assertEqual(response.headers["X-INSTANA-L"], "1")
 
-        self.assertIn('Server-Timing', response.headers)
+        self.assertIn("Server-Timing", response.headers)
         server_timing_value = "intid;desc=%s" % wsgi_span.t
-        self.assertEqual(response.headers['Server-Timing'], server_timing_value)
+        self.assertEqual(response.headers["Server-Timing"], server_timing_value)
 
         self.assertIsNone(tracer.active_span)
 
@@ -857,9 +925,11 @@ class TestFlask(unittest.TestCase):
 
         # wsgi
         self.assertEqual("wsgi", wsgi_span.n)
-        self.assertEqual('127.0.0.1:' + str(testenv['wsgi_port']), wsgi_span.data["http"]["host"])
-        self.assertEqual('/users/Ricky/sayhello', wsgi_span.data["http"]["url"])
-        self.assertEqual('GET', wsgi_span.data["http"]["method"])
+        self.assertEqual(
+            "127.0.0.1:" + str(testenv["wsgi_port"]), wsgi_span.data["http"]["host"]
+        )
+        self.assertEqual("/users/Ricky/sayhello", wsgi_span.data["http"]["url"])
+        self.assertEqual("GET", wsgi_span.data["http"]["method"])
         self.assertEqual(200, wsgi_span.data["http"]["status"])
         self.assertIsNone(wsgi_span.data["http"]["error"])
         self.assertIsNone(wsgi_span.stack)
@@ -868,23 +938,31 @@ class TestFlask(unittest.TestCase):
         self.assertEqual("test", test_span.data["sdk"]["name"])
         self.assertEqual("urllib3", urllib3_span.n)
         self.assertEqual(200, urllib3_span.data["http"]["status"])
-        self.assertEqual(testenv["wsgi_server"] + '/users/Ricky/sayhello', urllib3_span.data["http"]["url"])
+        self.assertEqual(
+            testenv["wsgi_server"] + "/users/Ricky/sayhello",
+            urllib3_span.data["http"]["url"],
+        )
         self.assertEqual("GET", urllib3_span.data["http"]["method"])
         self.assertIsNotNone(urllib3_span.stack)
         self.assertTrue(type(urllib3_span.stack) is list)
         self.assertTrue(len(urllib3_span.stack) > 1)
 
         # We should have a reported path template for this route
-        self.assertEqual("/users/{username}/sayhello", wsgi_span.data["http"]["path_tpl"])
+        self.assertEqual(
+            "/users/{username}/sayhello", wsgi_span.data["http"]["path_tpl"]
+        )
 
     def test_response_header_capture(self):
         # Hack together a manual custom headers list
         from instana.singletons import agent
-        original_extra_http_headers = agent.options.extra_http_headers
-        agent.options.extra_http_headers = [u'X-Capture-This', u'X-Capture-That']
 
-        with tracer.start_active_span('test'):
-            response = self.http.request('GET', testenv["wsgi_server"] + '/response_headers')
+        original_extra_http_headers = agent.options.extra_http_headers
+        agent.options.extra_http_headers = ["X-Capture-This", "X-Capture-That"]
+
+        with tracer.start_active_span("test"):
+            response = self.http.request(
+                "GET", testenv["wsgi_server"] + "/response_headers"
+            )
 
         spans = self.recorder.queued_spans()
         self.assertEqual(3, len(spans))
@@ -895,20 +973,20 @@ class TestFlask(unittest.TestCase):
 
         self.assertTrue(response)
         self.assertEqual(200, response.status)
-        self.assertIn('X-INSTANA-T', response.headers)
-        self.assertTrue(int(response.headers['X-INSTANA-T'], 16))
-        self.assertEqual(response.headers['X-INSTANA-T'], wsgi_span.t)
+        self.assertIn("X-INSTANA-T", response.headers)
+        self.assertTrue(int(response.headers["X-INSTANA-T"], 16))
+        self.assertEqual(response.headers["X-INSTANA-T"], wsgi_span.t)
 
-        self.assertIn('X-INSTANA-S', response.headers)
-        self.assertTrue(int(response.headers['X-INSTANA-S'], 16))
-        self.assertEqual(response.headers['X-INSTANA-S'], wsgi_span.s)
+        self.assertIn("X-INSTANA-S", response.headers)
+        self.assertTrue(int(response.headers["X-INSTANA-S"], 16))
+        self.assertEqual(response.headers["X-INSTANA-S"], wsgi_span.s)
 
-        self.assertIn('X-INSTANA-L', response.headers)
-        self.assertEqual(response.headers['X-INSTANA-L'], '1')
+        self.assertIn("X-INSTANA-L", response.headers)
+        self.assertEqual(response.headers["X-INSTANA-L"], "1")
 
-        self.assertIn('Server-Timing', response.headers)
+        self.assertIn("Server-Timing", response.headers)
         server_timing_value = "intid;desc=%s" % wsgi_span.t
-        self.assertEqual(response.headers['Server-Timing'], server_timing_value)
+        self.assertEqual(response.headers["Server-Timing"], server_timing_value)
 
         self.assertIsNone(tracer.active_span)
 
@@ -934,7 +1012,10 @@ class TestFlask(unittest.TestCase):
         self.assertEqual("test", test_span.data["sdk"]["name"])
         self.assertEqual("urllib3", urllib3_span.n)
         self.assertEqual(200, urllib3_span.data["http"]["status"])
-        self.assertEqual(testenv["wsgi_server"] + "/response_headers", urllib3_span.data["http"]["url"])
+        self.assertEqual(
+            testenv["wsgi_server"] + "/response_headers",
+            urllib3_span.data["http"]["url"],
+        )
         self.assertEqual("GET", urllib3_span.data["http"]["method"])
         self.assertIsNotNone(urllib3_span.stack)
         self.assertTrue(type(urllib3_span.stack) is list)
@@ -942,9 +1023,11 @@ class TestFlask(unittest.TestCase):
 
         # wsgi
         self.assertEqual("wsgi", wsgi_span.n)
-        self.assertEqual('127.0.0.1:' + str(testenv["wsgi_port"]), wsgi_span.data["http"]["host"])
-        self.assertEqual('/response_headers', wsgi_span.data["http"]["url"])
-        self.assertEqual('GET', wsgi_span.data["http"]["method"])
+        self.assertEqual(
+            "127.0.0.1:" + str(testenv["wsgi_port"]), wsgi_span.data["http"]["host"]
+        )
+        self.assertEqual("/response_headers", wsgi_span.data["http"]["url"])
+        self.assertEqual("GET", wsgi_span.data["http"]["method"])
         self.assertEqual(200, wsgi_span.data["http"]["status"])
         self.assertIsNone(wsgi_span.data["http"]["error"])
         self.assertIsNone(wsgi_span.stack)

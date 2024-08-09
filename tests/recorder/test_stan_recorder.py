@@ -1,8 +1,9 @@
-from instana.recorder import StanRecorder
-
 from multiprocessing import Queue
 from unittest import TestCase
 from unittest.mock import NonCallableMagicMock, PropertyMock
+
+from instana.recorder import StanRecorder
+
 
 class TestStanRecorderTC(TestCase):
     def setUp(self):
@@ -13,7 +14,9 @@ class TestStanRecorderTC(TestCase):
         self.mock_suppressed_span = NonCallableMagicMock()
         self.mock_suppressed_span.context = NonCallableMagicMock()
         self.mock_suppressed_property = PropertyMock(return_value=True)
-        type(self.mock_suppressed_span.context).suppression = self.mock_suppressed_property
+        type(
+            self.mock_suppressed_span.context
+        ).suppression = self.mock_suppressed_property
 
     def test_record_span_with_suppression(self):
         # Ensure that the queue is empty

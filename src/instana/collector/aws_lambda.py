@@ -4,14 +4,16 @@
 """
 AWS Lambda Collector: Manages the periodic collection of metrics & snapshot data
 """
+
 from ..log import logger
-from .base import BaseCollector
 from ..util import DictionaryOfStan
 from ..util.aws import normalize_aws_lambda_arn
+from .base import BaseCollector
 
 
 class AWSLambdaCollector(BaseCollector):
-    """ Collector for AWS Lambda """
+    """Collector for AWS Lambda"""
+
     def __init__(self, agent):
         super(AWSLambdaCollector, self).__init__(agent)
         logger.debug("Loading AWS Lambda Collector")
@@ -30,7 +32,7 @@ class AWSLambdaCollector(BaseCollector):
         self.event = event
 
         try:
-            plugin_data = dict()
+            plugin_data = {}
             plugin_data["name"] = "com.instana.plugin.aws.lambda"
             plugin_data["entityId"] = self.get_fq_arn()
             self.snapshot_data["plugins"] = [plugin_data]
@@ -60,8 +62,10 @@ class AWSLambdaCollector(BaseCollector):
             return self._fq_arn
 
         if self.context is None:
-            logger.debug("Attempt to get qualified ARN before the context object is available")
-            return ''
+            logger.debug(
+                "Attempt to get qualified ARN before the context object is available"
+            )
+            return ""
 
         self._fq_arn = normalize_aws_lambda_arn(self.context)
         return self._fq_arn

@@ -6,15 +6,14 @@ import opentracing.ext.tags as ext
 import wrapt
 
 from ..log import logger
-from ..util.traceutils import get_tracer_tuple, tracing_is_off
 from ..util.sql import sql_sanitizer
+from ..util.traceutils import get_tracer_tuple, tracing_is_off
 
 
 class CursorWrapper(wrapt.ObjectProxy):
-    __slots__ = ('_module_name', '_connect_params', '_cursor_params')
+    __slots__ = ("_module_name", "_connect_params", "_cursor_params")
 
-    def __init__(self, cursor, module_name,
-                 connect_params=None, cursor_params=None):
+    def __init__(self, cursor, module_name, connect_params=None, cursor_params=None):
         super(CursorWrapper, self).__init__(wrapped=cursor)
         self._module_name = module_name
         self._connect_params = connect_params
@@ -22,16 +21,25 @@ class CursorWrapper(wrapt.ObjectProxy):
 
     def _collect_kvs(self, span, sql):
         try:
-            span.set_tag(ext.SPAN_KIND, 'exit')
+            span.set_tag(ext.SPAN_KIND, "exit")
 
-            db_parameter_name = next((p for p in ('db', 'database', 'dbname') if p in self._connect_params[1]), None)
+            db_parameter_name = next(
+                (
+                    p
+                    for p in ("db", "database", "dbname")
+                    if p in self._connect_params[1]
+                ),
+                None,
+            )
             if db_parameter_name:
-                span.set_tag(ext.DATABASE_INSTANCE, self._connect_params[1][db_parameter_name])
+                span.set_tag(
+                    ext.DATABASE_INSTANCE, self._connect_params[1][db_parameter_name]
+                )
 
             span.set_tag(ext.DATABASE_STATEMENT, sql_sanitizer(sql))
-            span.set_tag(ext.DATABASE_USER, self._connect_params[1]['user'])
-            span.set_tag('host', self._connect_params[1]['host'])
-            span.set_tag('port', self._connect_params[1]['port'])
+            span.set_tag(ext.DATABASE_USER, self._connect_params[1]["user"])
+            span.set_tag("host", self._connect_params[1]["host"])
+            span.set_tag("port", self._connect_params[1]["port"])
         except Exception as e:
             logger.debug(e)
         return span
@@ -43,7 +51,7 @@ class CursorWrapper(wrapt.ObjectProxy):
         tracer, parent_span, operation_name = get_tracer_tuple()
 
         # If not tracing or we're being called from sqlalchemy, just pass through
-        if (tracing_is_off() or (operation_name == "sqlalchemy")):
+        if tracing_is_off() or (operation_name == "sqlalchemy"):
             return self.__wrapped__.execute(sql, params)
 
         with tracer.start_active_span(self._module_name, child_of=parent_span) as scope:
@@ -62,7 +70,7 @@ class CursorWrapper(wrapt.ObjectProxy):
         tracer, parent_span, operation_name = get_tracer_tuple()
 
         # If not tracing or we're being called from sqlalchemy, just pass through
-        if (tracing_is_off() or (operation_name == "sqlalchemy")):
+        if tracing_is_off() or (operation_name == "sqlalchemy"):
             return self.__wrapped__.executemany(sql, seq_of_parameters)
 
         with tracer.start_active_span(self._module_name, child_of=parent_span) as scope:
@@ -81,7 +89,7 @@ class CursorWrapper(wrapt.ObjectProxy):
         tracer, parent_span, operation_name = get_tracer_tuple()
 
         # If not tracing or we're being called from sqlalchemy, just pass through
-        if (tracing_is_off() or (operation_name == "sqlalchemy")):
+        if tracing_is_off() or (operation_name == "sqlalchemy"):
             return self.__wrapped__.execute(proc_name, params)
 
         with tracer.start_active_span(self._module_name, child_of=parent_span) as scope:
@@ -98,7 +106,7 @@ class CursorWrapper(wrapt.ObjectProxy):
 
 
 class ConnectionWrapper(wrapt.ObjectProxy):
-    __slots__ = ('_module_name', '_connect_params')
+    __slots__ = ("_module_name", "_connect_params")
 
     def __init__(self, connection, module_name, connect_params):
         super(ConnectionWrapper, self).__init__(wrapped=connection)
@@ -113,7 +121,8 @@ class ConnectionWrapper(wrapt.ObjectProxy):
             cursor=self.__wrapped__.cursor(*args, **kwargs),
             module_name=self._module_name,
             connect_params=self._connect_params,
-            cursor_params=(args, kwargs) if args or kwargs else None)
+            cursor_params=(args, kwargs) if args or kwargs else None,
+        )
 
     def begin(self):
         return self.__wrapped__.begin()
@@ -137,4 +146,5 @@ class ConnectionFactory(object):
         return self._wrapper_ctor(
             connection=self._connect_func(*args, **kwargs),
             module_name=self._module_name,
-            connect_params=connect_params)
+            connect_params=connect_params,
+        )

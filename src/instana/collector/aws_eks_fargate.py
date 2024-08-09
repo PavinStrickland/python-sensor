@@ -5,15 +5,16 @@ Collector for EKS Pods on AWS Fargate: Manages the periodic collection of metric
 """
 
 from time import time
-from instana.log import logger
+
 from instana.collector.base import BaseCollector
 from instana.collector.helpers.eks.process import EKSFargateProcessHelper
 from instana.collector.helpers.runtime import RuntimeHelper
+from instana.log import logger
 from instana.util import DictionaryOfStan
 
 
 class EKSFargateCollector(BaseCollector):
-    """ Collector for EKS Pods on AWS Fargate """
+    """Collector for EKS Pods on AWS Fargate"""
 
     def __init__(self, agent):
         super(EKSFargateCollector, self).__init__(agent)
