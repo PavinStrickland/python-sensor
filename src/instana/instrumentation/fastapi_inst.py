@@ -5,25 +5,32 @@
 Instrumentation for FastAPI
 https://fastapi.tiangolo.com/
 """
+
 try:
-    import fastapi
     import os
-    import wrapt
     import signal
+
+    import fastapi
+    import wrapt
+    from fastapi import HTTPException
+    from fastapi.exception_handlers import http_exception_handler
+    from starlette.middleware import Middleware
+
+    from instana.singletons import async_tracer
 
     from ..log import logger
     from ..util.gunicorn import running_in_gunicorn
     from .asgi import InstanaASGIMiddleware
-    from starlette.middleware import Middleware
-    from fastapi import HTTPException
-    from fastapi.exception_handlers import http_exception_handler
 
-    from instana.singletons import async_tracer
-
-    if not(hasattr(fastapi, '__version__')
-            and (fastapi.__version__[0] > '0' or
-                 int(fastapi.__version__.split('.')[1]) >= 51)):
-        logger.debug('Instana supports FastAPI package versions 0.51.0 and newer.  Skipping.')
+    if not (
+        hasattr(fastapi, "__version__")
+        and (
+            fastapi.__version__[0] > "0" or int(fastapi.__version__.split(".")[1]) >= 51
+        )
+    ):
+        logger.debug(
+            "Instana supports FastAPI package versions 0.51.0 and newer.  Skipping."
+        )
         raise ImportError
 
     async def instana_exception_handler(request, exc):
@@ -35,28 +42,28 @@ try:
             span = async_tracer.active_span
 
             if span is not None:
-                if hasattr(exc, 'detail') and 500 <= exc.status_code:
-                    span.set_tag('http.error', exc.detail)
-                span.set_tag('http.status_code', exc.status_code)
+                if hasattr(exc, "detail") and 500 <= exc.status_code:
+                    span.set_tag("http.error", exc.detail)
+                span.set_tag("http.status_code", exc.status_code)
         except Exception:
             logger.debug("FastAPI instana_exception_handler: ", exc_info=True)
 
         return await http_exception_handler(request, exc)
 
-    @wrapt.patch_function_wrapper('fastapi.applications', 'FastAPI.__init__')
+    @wrapt.patch_function_wrapper("fastapi.applications", "FastAPI.__init__")
     def init_with_instana(wrapped, instance, args, kwargs):
-        middleware = kwargs.get('middleware')
+        middleware = kwargs.get("middleware")
         if middleware is None:
-            kwargs['middleware'] = [Middleware(InstanaASGIMiddleware)]
+            kwargs["middleware"] = [Middleware(InstanaASGIMiddleware)]
         elif isinstance(middleware, list):
             middleware.append(Middleware(InstanaASGIMiddleware))
 
-        exception_handlers = kwargs.get('exception_handlers')
+        exception_handlers = kwargs.get("exception_handlers")
         if exception_handlers is None:
-            kwargs['exception_handlers'] = dict()
+            kwargs["exception_handlers"] = {}
 
-        if isinstance(kwargs['exception_handlers'], dict):
-            kwargs['exception_handlers'][HTTPException] = instana_exception_handler
+        if isinstance(kwargs["exception_handlers"], dict):
+            kwargs["exception_handlers"][HTTPException] = instana_exception_handler
 
         return wrapped(*args, **kwargs)
 

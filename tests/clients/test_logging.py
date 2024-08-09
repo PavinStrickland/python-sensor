@@ -5,12 +5,11 @@ import logging
 import unittest
 from unittest.mock import patch
 
+from instana.singletons import agent, tracer
 from opentelemetry.trace import SpanKind
 
-from instana.singletons import agent, tracer
 
 class TestLogging(unittest.TestCase):
-
     def setUp(self) -> None:
         """Clear all spans before a test run"""
         self.recorder = tracer.span_processor
@@ -64,7 +63,7 @@ class TestLogging(unittest.TestCase):
             try:
                 a = 42
                 b = 0
-                c = a / b
+                a / b
             except Exception as e:
                 self.logger.exception("Exception: %s", str(e))
 

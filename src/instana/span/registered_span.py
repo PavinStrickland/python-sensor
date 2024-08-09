@@ -1,10 +1,10 @@
 # (c) Copyright IBM Corp. 2024
 
+from opentelemetry.trace import SpanKind
+
 from instana.log import logger
 from instana.span.base_span import BaseSpan
 from instana.span.kind import ENTRY_SPANS, EXIT_SPANS, HTTP_SPANS, LOCAL_SPANS
-
-from opentelemetry.trace import SpanKind
 
 
 class RegisteredSpan(BaseSpan):
@@ -12,9 +12,7 @@ class RegisteredSpan(BaseSpan):
         # pylint: disable=invalid-name
         super(RegisteredSpan, self).__init__(span, source, **kwargs)
         self.n = span.name
-        self.k = (
-            SpanKind.SERVER
-        )  # entry -> Server span represents a synchronous incoming remote call such as an incoming HTTP request
+        self.k = SpanKind.SERVER  # entry -> Server span represents a synchronous incoming remote call such as an incoming HTTP request
 
         self.data["service"] = service_name
         if span.name in ENTRY_SPANS:
@@ -22,14 +20,10 @@ class RegisteredSpan(BaseSpan):
             self._populate_entry_span_data(span)
             self._populate_extra_span_attributes(span)
         elif span.name in EXIT_SPANS:
-            self.k = (
-                SpanKind.CLIENT
-            )  # exit -> Client span represents a synchronous outgoing remote call such as an outgoing HTTP request or database call
+            self.k = SpanKind.CLIENT  # exit -> Client span represents a synchronous outgoing remote call such as an outgoing HTTP request or database call
             self._populate_exit_span_data(span)
         elif span.name in LOCAL_SPANS:
-            self.k = (
-                SpanKind.INTERNAL
-            )  # intermediate -> Internal span represents an internal operation within an application
+            self.k = SpanKind.INTERNAL  # intermediate -> Internal span represents an internal operation within an application
             self._populate_local_span_data(span)
 
         if "rabbitmq" in self.data and self.data["rabbitmq"]["sort"] == "publish":

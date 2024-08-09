@@ -1,10 +1,11 @@
 # Standard Libraries
-import re
 import json
+import re
+
+import pandas as pd
 
 # Third Party
 import requests
-import pandas as pd
 from bs4 import BeautifulSoup
 from kubernetes import client, config
 
@@ -22,7 +23,7 @@ def get_upstream_version(dependency):
     """Get the latest version available upstream"""
     if dependency in SPEC_MAP:
         # webscrape info from official website
-        pattern = "(\d+\.\d+\.?\d*)"
+        pattern = r"(\d+\.\d+\.?\d*)"
 
         url = SPEC_MAP[dependency]
         page = requests.get(url)
@@ -114,7 +115,7 @@ def process_taskrun_logs(
                 f"Retrieving container logs from the successful taskrun pod {pod_name} of taskrun {taskrun_name}.."
             )
             if task_name == "python-tracer-unittest-gevent-starlette-task":
-                match = re.search("Successfully installed .* (starlette-[^\s]+)", logs)
+                match = re.search(r"Successfully installed .* (starlette-[^\s]+)", logs)
                 tekton_ci_output += f"{match[1]}\n"
             elif task_name == "python-tracer-unittest-default-task":
                 for line in logs.splitlines():
@@ -190,7 +191,7 @@ def main():
     # Convert dataframe to markdown
     markdown_table = df.to_markdown(index=False)
 
-    disclaimer = f"##### This page is auto-generated. Any change will be overwritten after the next sync. Please apply changes directly to the files in the [python tracer](https://github.com/instana/python-sensor) repo."
+    disclaimer = "##### This page is auto-generated. Any change will be overwritten after the next sync. Please apply changes directly to the files in the [python tracer](https://github.com/instana/python-sensor) repo."
     title = "## Python supported packages and versions"
 
     # Combine disclaimer, title, and markdown table with line breaks
