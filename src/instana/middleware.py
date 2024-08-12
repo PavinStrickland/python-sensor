@@ -2,5 +2,5 @@
 # (c) Copyright Instana Inc. 2017
 
 
-from .instrumentation.wsgi import InstanaWSGIMiddleware
-from .instrumentation.asgi import InstanaASGIMiddleware
+# from instana.instrumentation.wsgi import InstanaWSGIMiddleware  # noqa: F401
+from instana.instrumentation.asgi import InstanaASGIMiddleware  # noqa: F401
