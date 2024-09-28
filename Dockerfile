@@ -1,5 +1,5 @@
 # Development Container
-FROM python:3.8.5
+FROM python:3.13.0rc2
 
 RUN apt update -q
 RUN apt install -qy vim 
