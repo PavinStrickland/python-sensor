@@ -1,5 +1,5 @@
 # Development Container
-FROM python:3.8.5
+FROM python:3.14.0a4
 
 RUN apt update -q
 RUN apt install -qy vim 
